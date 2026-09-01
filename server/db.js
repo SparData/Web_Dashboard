@@ -5,6 +5,9 @@ dotenv.config();
 
 const { Pool } = pg;
 
+// Set pg type parser for DATE (OID 1082) to return raw string instead of local Date object
+pg.types.setTypeParser(1082, (val) => val);
+
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,

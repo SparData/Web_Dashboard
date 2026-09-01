@@ -4,14 +4,6 @@ import { Eye, DollarSign, Award, Users, AlertTriangle, Percent, ShoppingBag, Che
 export default function MetricsGrid({ stats, onKpiClick }) {
   const cards = [
     {
-      key: 'avgSearchRank',
-      label: 'Average Search Rank',
-      value: stats.avgSearchRank.value,
-      unit: stats.avgSearchRank.unit,
-      className: 'cyan',
-      icon: <Eye size={18} style={{ color: 'var(--secondary)' }} />
-    },
-    {
       key: 'distinctProducts',
       label: 'Total Products',
       value: stats.distinctProducts.value,
@@ -58,6 +50,14 @@ export default function MetricsGrid({ stats, onKpiClick }) {
       unit: '',
       className: 'purple',
       icon: <Percent size={18} style={{ color: '#a855f7' }} />
+    },
+    {
+      key: 'outOfStockRate',
+      label: 'Out of Stock %',
+      value: `${stats.outOfStockRate.value}%`,
+      unit: '',
+      className: stats.outOfStockRate.value > 10 ? 'danger' : 'cyan',
+      icon: <AlertTriangle size={18} style={{ color: stats.outOfStockRate.value > 10 ? 'var(--danger)' : 'var(--secondary)' }} />
     }
   ];
 

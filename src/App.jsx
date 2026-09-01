@@ -113,12 +113,6 @@ export default function App() {
 
   // Extract filter dropdown options dynamically & apply client brand limits
   const availableOptions = useMemo(() => {
-    let products = productListings;
-
-    if (user?.brandLimit) {
-      products = products.filter(p => p.brand?.toLowerCase() === user.brandLimit.toLowerCase());
-    }
-
     const formatDateStr = (dateVal) => {
       if (!dateVal) return '';
       if (typeof dateVal === 'string') {
@@ -130,12 +124,58 @@ export default function App() {
       return String(dateVal);
     };
 
+    const matchFilter = (p, filterKey) => {
+      if (filterKey === 'scrape_date') {
+        return filters.scrape_date === 'all' || formatDateStr(p.scrape_date) === filters.scrape_date;
+      }
+      if (filterKey === 'city_pincode') {
+        if (filters.city_pincode === 'all') return true;
+        const [filterCity, filterPin] = filters.city_pincode.split('|');
+        const itemCity = p.city?.trim() || '';
+        const itemPin = p.pincode?.trim() || '';
+        if (filterPin === 'all') {
+          return itemCity.toLowerCase() === filterCity.toLowerCase();
+        } else {
+          return (itemCity.toLowerCase() === filterCity.toLowerCase()) && 
+                 (itemPin === filterPin);
+        }
+      }
+      if (filterKey === 'brand') {
+        return filters.brand === 'all' || p.brand === filters.brand;
+      }
+      if (filterKey === 'category') {
+        return filters.category === 'all' || p.category === filters.category;
+      }
+      if (filterKey === 'source_chain') {
+        return filters.source_chain === 'all' || p.source_chain === filters.source_chain;
+      }
+      if (filterKey === 'product') {
+        return filters.product === 'all' || p.product === filters.product;
+      }
+      return true;
+    };
+
+    const filterProductsExcept = (excludeKey) => {
+      let list = productListings;
+      if (user?.brandLimit) {
+        list = list.filter(p => p.brand?.toLowerCase() === user.brandLimit.toLowerCase());
+      }
+      return list.filter(p => {
+        return ['scrape_date', 'city_pincode', 'brand', 'category', 'source_chain', 'product'].every(key => {
+          if (key === excludeKey) return true;
+          return matchFilter(p, key);
+        });
+      });
+    };
+
+    const datesProducts = filterProductsExcept('scrape_date');
     const dates = Array.from(new Set(
-      products.map(p => formatDateStr(p.scrape_date))
+      datesProducts.map(p => formatDateStr(p.scrape_date))
     )).filter(Boolean).sort();
 
+    const cityPincodesProducts = filterProductsExcept('city_pincode');
     const cityPincodesMap = {};
-    products.forEach(p => {
+    cityPincodesProducts.forEach(p => {
       const city = p.city?.trim();
       const pin = p.pincode?.trim();
       if (city) {
@@ -147,30 +187,33 @@ export default function App() {
         }
       }
     });
-
     const cityPincodes = {};
     Object.keys(cityPincodesMap).sort().forEach(city => {
       cityPincodes[city] = Array.from(cityPincodesMap[city]).sort();
     });
 
+    const brandsProducts = filterProductsExcept('brand');
     const brands = Array.from(new Set(
-      products.map(p => p.brand)
+      brandsProducts.map(p => p.brand)
     )).filter(Boolean).sort();
 
+    const categoriesProducts = filterProductsExcept('category');
     const categories = Array.from(new Set(
-      products.map(p => p.category)
+      categoriesProducts.map(p => p.category)
     )).filter(Boolean).sort();
 
+    const retailersProducts = filterProductsExcept('source_chain');
     const retailers = Array.from(new Set(
-      products.map(p => p.source_chain)
+      retailersProducts.map(p => p.source_chain)
     )).filter(Boolean).sort();
 
+    const searchKeywordsProducts = filterProductsExcept('product');
     const searchKeywords = Array.from(new Set(
-      products.map(p => p.product)
+      searchKeywordsProducts.map(p => p.product)
     )).filter(Boolean).sort();
 
     return { dates, cityPincodes, brands, categories, retailers, searchKeywords };
-  }, [productListings, user]);
+  }, [productListings, user, filters]);
 
   // Filter datasets based on active filters & user brand limit
   const filteredBannerAds = useMemo(() => {
@@ -319,6 +362,10 @@ export default function App() {
       const availabilityRate = totalProducts 
         ? parseFloat(((availableCount / totalProducts) * 100).toFixed(2)) 
         : 0.0;
+      const outOfStockCount = totalProducts - availableCount;
+      const outOfStockRate = totalProducts
+        ? parseFloat(((outOfStockCount / totalProducts) * 100).toFixed(2))
+        : 0.0;
 
       const discounts = products.map(p => {
         if (p.discount !== undefined && p.discount !== null) {
@@ -344,22 +391,32 @@ export default function App() {
         ? Math.round(ranks.reduce((sum, r) => sum + r, 0) / ranks.length) 
         : 0;
 
-      return { totalAds, avgPrice, avgRating, availabilityRate, avgDiscount, distinctProducts, avgSearchRank };
+      return { totalAds, avgPrice, avgRating, availabilityRate, outOfStockRate, avgDiscount, distinctProducts, avgSearchRank };
     };
 
     const currentKpis = computeKpis(filteredBannerAds, filteredProductListings);
+
+    // Check if any interactive filters are applied in the UI
+    const hasActiveFilters = filters.scrape_date !== 'all' || 
+                             filters.city_pincode !== 'all' || 
+                             filters.brand !== 'all' || 
+                             filters.category !== 'all' || 
+                             filters.source_chain !== 'all' || 
+                             filters.product !== 'all';
 
     // Compute total brands count respecting user brandLimit
     let totalBrandsCount = dbDistinctBrands.length;
     if (user?.brandLimit) {
       const hasBrand = dbDistinctBrands.some(b => b.toLowerCase() === user.brandLimit.toLowerCase());
       totalBrandsCount = hasBrand ? 1 : 0;
+    } else if (hasActiveFilters) {
+      totalBrandsCount = new Set(filteredProductListings.map(p => p.brand?.toLowerCase()).filter(Boolean)).size;
     }
 
     // Determine average price to display
     let displayAvgPrice = dbAvgPrice;
-    if (user?.brandLimit) {
-      // If brand limit is present, use the filtered products average
+    if (user?.brandLimit || hasActiveFilters) {
+      // If brand limit is present or filters are active, use the filtered products average
       const prices = filteredProductListings.map(p => parseFloat(p.price)).filter(p => !isNaN(p));
       displayAvgPrice = prices.length 
         ? Math.round(prices.reduce((sum, p) => sum + p, 0) / prices.length) 
@@ -370,8 +427,8 @@ export default function App() {
 
     // Determine average discount to display
     let displayAvgDiscount = dbAvgDiscount;
-    if (user?.brandLimit) {
-      // If brand limit is present, use the filtered products average discount
+    if (user?.brandLimit || hasActiveFilters) {
+      // If brand limit is present or filters are active, use the filtered products average discount
       const discounts = filteredProductListings.map(p => {
         if (p.discount !== undefined && p.discount !== null) {
           const d = parseFloat(p.discount);
@@ -393,8 +450,8 @@ export default function App() {
 
     // Determine availability rate to display
     let displayAvailabilityRate = dbAvailabilityPercentage;
-    if (user?.brandLimit) {
-      // If brand limit is present, use the filtered products availability rate
+    if (user?.brandLimit || hasActiveFilters) {
+      // If brand limit is present or filters are active, use the filtered products availability rate
       const totalBrandProducts = filteredProductListings.length;
       const availableCount = filteredProductListings.filter(p => p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes')).length;
       displayAvailabilityRate = totalBrandProducts 
@@ -404,23 +461,20 @@ export default function App() {
       displayAvailabilityRate = currentKpis.availabilityRate;
     }
 
-    // Determine average search rank to display
-    let displayAvgSearchRank = dbAvgSearchRank;
-    if (user?.brandLimit) {
-      const ranks = filteredProductListings.map(p => parseFloat(p.rank_num)).filter(r => !isNaN(r));
-      displayAvgSearchRank = ranks.length 
-        ? Math.round(ranks.reduce((sum, r) => sum + r, 0) / ranks.length) 
-        : 0;
-    } else if (displayAvgSearchRank === null || displayAvgSearchRank === undefined) {
-      displayAvgSearchRank = currentKpis.avgSearchRank;
+    // Determine out of stock rate to display
+    let displayOutOfStockRate = dbAvailabilityPercentage !== null ? parseFloat((100 - dbAvailabilityPercentage).toFixed(2)) : null;
+    if (user?.brandLimit || hasActiveFilters) {
+      const totalBrandProducts = filteredProductListings.length;
+      const availableCount = filteredProductListings.filter(p => p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes')).length;
+      const outOfStockCount = totalBrandProducts - availableCount;
+      displayOutOfStockRate = totalBrandProducts 
+        ? parseFloat(((outOfStockCount / totalBrandProducts) * 100).toFixed(2)) 
+        : 0.0;
+    } else if (displayOutOfStockRate === null || displayOutOfStockRate === undefined) {
+      displayOutOfStockRate = currentKpis.outOfStockRate;
     }
 
     return {
-      avgSearchRank: {
-        value: displayAvgSearchRank,
-        label: 'Average Search Rank',
-        unit: ''
-      },
       distinctProducts: {
         value: currentKpis.distinctProducts,
         label: 'Total Products',
@@ -450,12 +504,17 @@ export default function App() {
         value: displayAvgDiscount,
         label: 'Avg Discount',
         unit: '%'
+      },
+      outOfStockRate: {
+        value: displayOutOfStockRate,
+        label: 'Out of Stock %',
+        unit: '%'
       }
     };
-  }, [filteredBannerAds, filteredProductListings, dbDistinctBrands, dbAvgPrice, dbAvgDiscount, dbAvailabilityPercentage, dbAvgSearchRank, user]);
+  }, [filteredBannerAds, filteredProductListings, dbDistinctBrands, dbAvgPrice, dbAvgDiscount, dbAvailabilityPercentage, dbAvgSearchRank, user, filters]);
 
   const handleKpiClick = (kpiKey) => {
-    if (['avgPrice', 'avgRating', 'avgDiscount', 'availabilityRate', 'totalBrands', 'distinctProducts', 'avgSearchRank'].includes(kpiKey)) {
+    if (['avgPrice', 'avgRating', 'avgDiscount', 'availabilityRate', 'totalBrands', 'distinctProducts', 'outOfStockRate'].includes(kpiKey)) {
       if (user.dashboardId === 'full' || user.dashboardId === 'catalog-focus') {
         setActiveTab('products');
       }
@@ -498,11 +557,8 @@ export default function App() {
     <div className="app-container">
       {/* Sidebar Navigation */}
       <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-        <div className="sidebar-logo">
-          <div className="logo-icon">
-            <Database size={20} style={{ color: '#fff' }} />
-          </div>
-          <span className="logo-text">BI Dashboard</span>
+        <div className="sidebar-logo" style={{ background: '#ffffff', borderRadius: '8px', padding: '10px 14px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '32px' }}>
+          <img src="/logo.jpg" alt="SAPERE KROGNOS Logo" style={{ height: '36px', maxWidth: '100%', objectFit: 'contain' }} />
         </div>
 
         <nav style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
@@ -523,7 +579,7 @@ export default function App() {
                   onClick={() => { setActiveTab('ads'); setMobileMenuOpen(false); }}
                 >
                   <Image size={18} />
-                  <span>Availability Data</span>
+                  <span>Banner Data</span>
                 </div>
               </li>
             )}
@@ -573,7 +629,7 @@ export default function App() {
                 <span className="badge danger" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>Offline (Demo Mode)</span>
               )}
             </div>
-            <p>Real-time analytics for search ads, placements, and product catalogs</p>
+            <p>Comprehensive insights for Digital Shelf Share, Banner Ads, and Product Listings</p>
           </div>
 
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>

@@ -21,43 +21,81 @@ export default function ProductInsights({ productListings, distinctTitles = [] }
   });
 
   const priceChartOption = {
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    tooltip: { 
+      trigger: 'axis', 
+      axisPointer: { type: 'shadow' },
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#cbd5e1',
+      borderWidth: 1,
+      textStyle: { color: '#1e293b', fontSize: 12 },
+      padding: [10, 14],
+      extraCssText: 'border-radius: 8px; box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.08);'
+    },
     grid: { left: '3%', right: '4%', bottom: '8%', top: '10%', containLabel: true },
     xAxis: {
       type: 'category',
       data: Object.keys(priceRanges),
-      axisLabel: { color: '#9ca3af', fontSize: 10 },
-      axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.08)' } }
+      axisLabel: { color: '#64748b', fontSize: 10 },
+      axisLine: { lineStyle: { color: '#e2e8f0' } }
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: '#9ca3af', fontSize: 10 },
-      splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.05)' } }
+      axisLabel: { color: '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: '#f1f5f9' } }
     },
     series: [
       {
         name: 'Product Count',
         type: 'bar',
-        barWidth: '40%',
+        barWidth: '30%',
         data: Object.values(priceRanges),
+        showBackground: true,
+        backgroundStyle: {
+          color: '#f1f5f9',
+          borderRadius: [6, 6, 0, 0]
+        },
         itemStyle: {
-          color: '#d946ef',
-          borderRadius: [4, 4, 0, 0]
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: '#002f6c' },
+              { offset: 1, color: '#0288d1' }
+            ]
+          },
+          borderRadius: [6, 6, 0, 0],
+          shadowBlur: 10,
+          shadowColor: 'rgba(0, 47, 108, 0.1)'
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 15,
+            shadowColor: 'rgba(0, 47, 108, 0.25)'
+          }
         }
       }
     ]
   };
 
-  // 2. Average rating per brand using db column 'rating_of_5'
+  // 2. Average rating per brand using db column 'rating_of_5' (excluding 'Others')
   const brandRatings = {};
+  const ignoredBrands = new Set(['others', 'other', 'unknown', 'n/a', 'na', 'none', 'null', 'undefined']);
+  
   productListings.forEach(p => {
+    const rawBrand = p.brand?.trim();
+    if (!rawBrand) return;
+    if (ignoredBrands.has(rawBrand.toLowerCase())) return;
+
     const rating = parseFloat(p.rating_of_5) || 0;
     if (rating > 0) {
-      if (!brandRatings[p.brand]) {
-        brandRatings[p.brand] = { sum: 0, count: 0 };
+      if (!brandRatings[rawBrand]) {
+        brandRatings[rawBrand] = { sum: 0, count: 0 };
       }
-      brandRatings[p.brand].sum += rating;
-      brandRatings[p.brand].count++;
+      brandRatings[rawBrand].sum += rating;
+      brandRatings[rawBrand].count++;
     }
   });
 
@@ -70,30 +108,62 @@ export default function ProductInsights({ productListings, distinctTitles = [] }
     .slice(0, 8); // Top 8 brands
 
   const ratingChartOption = {
-    tooltip: { trigger: 'axis', formatter: '{b}: {c} ★' },
+    tooltip: { 
+      trigger: 'axis', 
+      formatter: '{b}: <span style="color: #1e293b; font-weight: 600;">{c} ★</span>',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#cbd5e1',
+      borderWidth: 1,
+      textStyle: { color: '#1e293b', fontSize: 12 },
+      padding: [10, 14],
+      extraCssText: 'border-radius: 8px; box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.08);'
+    },
     grid: { left: '3%', right: '4%', bottom: '8%', top: '10%', containLabel: true },
     xAxis: {
       type: 'category',
       data: brandAvgRatings.map(d => d.brand),
-      axisLabel: { color: '#9ca3af', fontSize: 10, rotate: 15 },
-      axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.08)' } }
+      axisLabel: { color: '#64748b', fontSize: 10, rotate: 15 },
+      axisLine: { lineStyle: { color: '#e2e8f0' } }
     },
     yAxis: {
       type: 'value',
       min: 3.5, // Zoom into rating differences
       max: 5,
-      axisLabel: { color: '#9ca3af', fontSize: 10 },
-      splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.05)' } }
+      axisLabel: { color: '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: '#f1f5f9' } }
     },
     series: [
       {
         name: 'Avg Rating',
         type: 'bar',
-        barWidth: '35%',
+        barWidth: '30%',
         data: brandAvgRatings.map(d => d.avg),
+        showBackground: true,
+        backgroundStyle: {
+          color: '#f1f5f9',
+          borderRadius: [6, 6, 0, 0]
+        },
         itemStyle: {
-          color: '#10b981',
-          borderRadius: [4, 4, 0, 0]
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: '#f5a623' },
+              { offset: 1, color: '#d97706' }
+            ]
+          },
+          borderRadius: [6, 6, 0, 0],
+          shadowBlur: 10,
+          shadowColor: 'rgba(245, 166, 35, 0.15)'
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 15,
+            shadowColor: 'rgba(245, 166, 35, 0.35)'
+          }
         }
       }
     ]

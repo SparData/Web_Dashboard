@@ -14,28 +14,60 @@ export default function AdAnalysis({ bannerAds }) {
   const positionValues = Object.values(positionCounts);
 
   const positionChartOption = {
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
+    tooltip: { 
+      trigger: 'axis', 
+      axisPointer: { type: 'shadow' },
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#cbd5e1',
+      borderWidth: 1,
+      textStyle: { color: '#1e293b', fontSize: 12 },
+      padding: [10, 14],
+      extraCssText: 'border-radius: 8px; box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.08);'
+    },
+    grid: { left: '3%', right: '6%', bottom: '3%', top: '5%', containLabel: true },
     xAxis: {
       type: 'value',
-      axisLabel: { color: '#9ca3af', fontSize: 10 },
-      splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.05)' } }
+      axisLabel: { color: '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: '#f1f5f9' } }
     },
     yAxis: {
       type: 'category',
       data: positions,
-      axisLabel: { color: '#9ca3af', fontSize: 11 },
-      axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.08)' } }
+      axisLabel: { color: '#64748b', fontSize: 11 },
+      axisLine: { lineStyle: { color: '#e2e8f0' } }
     },
     series: [
       {
         name: 'Ads Count',
         type: 'bar',
-        barWidth: '40%',
+        barWidth: '35%',
         data: positionValues,
+        showBackground: true,
+        backgroundStyle: {
+          color: '#f1f5f9',
+          borderRadius: [0, 6, 6, 0]
+        },
         itemStyle: {
-          color: '#06b6d4',
-          borderRadius: [0, 4, 4, 0]
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 1,
+            y2: 0,
+            colorStops: [
+              { offset: 0, color: '#283890' },
+              { offset: 1, color: '#f5a623' }
+            ]
+          },
+          borderRadius: [0, 6, 6, 0],
+          shadowBlur: 10,
+          shadowColor: 'rgba(0, 47, 108, 0.1)'
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 15,
+            shadowColor: 'rgba(0, 47, 108, 0.25)'
+          }
         }
       }
     ]
