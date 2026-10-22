@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Filter, Tag, MapPin, Layers, ShoppingBag, Search, X } from 'lucide-react';
+import { Calendar, Tag, MapPin, Layers, ShoppingBag, Search, X, RotateCcw } from 'lucide-react';
 
 export default function Filters({ filters, onFilterChange, availableOptions }) {
   const handleChange = (key, value) => {
@@ -9,48 +9,106 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
     });
   };
 
-  const formatDisplayDate = (dateStr) => {
-    if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
-    if (!year || !month || !day) return dateStr;
-    const dateObj = new Date(year, month - 1, day);
-    return dateObj.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+  const handleClearSingle = (key) => {
+    onFilterChange({
+      ...filters,
+      [key]: (key === 'start_date' || key === 'end_date') ? '' : 'all'
     });
   };
+
+  const minAvailableDate = availableOptions.dates?.[0] || '';
+  const maxAvailableDate = availableOptions.dates?.length ? availableOptions.dates[availableOptions.dates.length - 1] : '';
 
   return (
     <div className="filter-panel glass fade-in">
 
+      {/* 1. Date Slicers: Start Date & End Date */}
+      <div className="filter-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+        {/* Start Date */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="filter-header">
+            <label>
+              <Calendar size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+              Start Date
+            </label>
+            {filters.start_date && (
+              <button 
+                type="button" 
+                className="filter-clear-btn" 
+                onClick={() => handleClearSingle('start_date')}
+                title="Clear Start Date"
+                aria-label="Clear Start Date"
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
+          <input 
+            type="date" 
+            className={`filter-control ${filters.start_date ? 'active-filter' : ''}`}
+            value={filters.start_date || ''} 
+            min={minAvailableDate}
+            max={filters.end_date || maxAvailableDate}
+            onChange={(e) => handleChange('start_date', e.target.value)}
+            style={{ minWidth: '130px' }}
+          />
+        </div>
 
-      {/* 1. Date Filter */}
-      <div className="filter-group">
-        <label>
-          <Calendar size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-          Date
-        </label>
-        <select 
-          className="filter-control" 
-          value={filters.scrape_date} 
-          onChange={(e) => handleChange('scrape_date', e.target.value)}
-        >
-          <option value="all">All Dates</option>
-          {availableOptions.dates.map(date => (
-            <option key={date} value={date}>{formatDisplayDate(date)}</option>
-          ))}
-        </select>
+        {/* Separator Arrow */}
+        <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 700, marginTop: '18px' }}>→</span>
+
+        {/* End Date */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="filter-header">
+            <label>
+              <Calendar size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+              End Date
+            </label>
+            {filters.end_date && (
+              <button 
+                type="button" 
+                className="filter-clear-btn" 
+                onClick={() => handleClearSingle('end_date')}
+                title="Clear End Date"
+                aria-label="Clear End Date"
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
+          <input 
+            type="date" 
+            className={`filter-control ${filters.end_date ? 'active-filter' : ''}`}
+            value={filters.end_date || ''} 
+            min={filters.start_date || minAvailableDate}
+            max={maxAvailableDate}
+            onChange={(e) => handleChange('end_date', e.target.value)}
+            style={{ minWidth: '130px' }}
+          />
+        </div>
       </div>
 
       {/* 2. City, Pincode Filter */}
       <div className="filter-group">
-        <label>
-          <MapPin size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-          City, Pincode
-        </label>
+        <div className="filter-header">
+          <label>
+            <MapPin size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+            City, Pincode
+          </label>
+          {filters.city_pincode !== 'all' && (
+            <button 
+              type="button" 
+              className="filter-clear-btn" 
+              onClick={() => handleClearSingle('city_pincode')}
+              title="Clear City/Pincode filter"
+              aria-label="Clear City/Pincode filter"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
         <select 
-          className="filter-control" 
+          className={`filter-control ${filters.city_pincode !== 'all' ? 'active-filter' : ''}`}
           value={filters.city_pincode} 
           onChange={(e) => handleChange('city_pincode', e.target.value)}
         >
@@ -68,12 +126,25 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
 
       {/* 3. Brand Filter */}
       <div className="filter-group">
-        <label>
-          <Tag size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-          Brand
-        </label>
+        <div className="filter-header">
+          <label>
+            <Tag size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+            Brand
+          </label>
+          {filters.brand !== 'all' && (
+            <button 
+              type="button" 
+              className="filter-clear-btn" 
+              onClick={() => handleClearSingle('brand')}
+              title="Clear Brand filter"
+              aria-label="Clear Brand filter"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
         <select 
-          className="filter-control" 
+          className={`filter-control ${filters.brand !== 'all' ? 'active-filter' : ''}`}
           value={filters.brand} 
           onChange={(e) => handleChange('brand', e.target.value)}
         >
@@ -86,12 +157,25 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
 
       {/* 4. Category Filter */}
       <div className="filter-group">
-        <label>
-          <Layers size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-          Category
-        </label>
+        <div className="filter-header">
+          <label>
+            <Layers size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+            Category
+          </label>
+          {filters.category !== 'all' && (
+            <button 
+              type="button" 
+              className="filter-clear-btn" 
+              onClick={() => handleClearSingle('category')}
+              title="Clear Category filter"
+              aria-label="Clear Category filter"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
         <select 
-          className="filter-control" 
+          className={`filter-control ${filters.category !== 'all' ? 'active-filter' : ''}`}
           value={filters.category} 
           onChange={(e) => handleChange('category', e.target.value)}
         >
@@ -104,12 +188,25 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
 
       {/* 5. Retailer Filter (source_chain) */}
       <div className="filter-group">
-        <label>
-          <ShoppingBag size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-          Retailer
-        </label>
+        <div className="filter-header">
+          <label>
+            <ShoppingBag size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+            Retailer
+          </label>
+          {filters.source_chain !== 'all' && (
+            <button 
+              type="button" 
+              className="filter-clear-btn" 
+              onClick={() => handleClearSingle('source_chain')}
+              title="Clear Retailer filter"
+              aria-label="Clear Retailer filter"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
         <select 
-          className="filter-control" 
+          className={`filter-control ${filters.source_chain !== 'all' ? 'active-filter' : ''}`}
           value={filters.source_chain} 
           onChange={(e) => handleChange('source_chain', e.target.value)}
         >
@@ -122,12 +219,25 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
 
       {/* 6. Search Keyword Filter (product) */}
       <div className="filter-group">
-        <label>
-          <Search size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-          Search Keyword
-        </label>
+        <div className="filter-header">
+          <label>
+            <Search size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+            Search Keyword
+          </label>
+          {filters.product !== 'all' && (
+            <button 
+              type="button" 
+              className="filter-clear-btn" 
+              onClick={() => handleClearSingle('product')}
+              title="Clear Search Keyword filter"
+              aria-label="Clear Search Keyword filter"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
         <select 
-          className="filter-control" 
+          className={`filter-control ${filters.product !== 'all' ? 'active-filter' : ''}`}
           value={filters.product} 
           onChange={(e) => handleChange('product', e.target.value)}
         >
@@ -140,19 +250,12 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
 
       {/* Reset Button */}
       <button 
-        className="btn" 
-        style={{ 
-          marginLeft: 'auto',
-          whiteSpace: 'nowrap',
-          padding: '8px 12px',
-          height: '34px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '0.8rem'
-        }}
+        type="button"
+        className="filter-reset-btn" 
+        title="Reset all filters"
         onClick={() => onFilterChange({
-          scrape_date: 'all',
+          start_date: '',
+          end_date: '',
           city_pincode: 'all',
           brand: 'all',
           category: 'all',
@@ -160,6 +263,7 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
           product: 'all'
         })}
       >
+        <RotateCcw size={13} />
         Clear Filters
       </button>
     </div>

@@ -1,11 +1,59 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ArrowUpDown, ChevronLeft, ChevronRight, Search, Calendar, X, RotateCcw } from 'lucide-react';
 
-export default function DataTable({ data, columns, searchPlaceholder = "Search records..." }) {
+export default function DataTable({ 
+  data, 
+  columns, 
+  searchPlaceholder = "Search records...", 
+  title, 
+  subtitle, 
+  badge, 
+  icon,
+  enableDateFilter = false,
+  dateKey = 'scrape_date',
+  onDateChange
+}) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Helper date key extractor
+  const formatDateKey = (dateVal) => {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') {
+      return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal.trim();
+    }
+    if (dateVal instanceof Date) {
+      return dateVal.toISOString().split('T')[0];
+    }
+    return String(dateVal).trim();
+  };
+
+  const formatDateDDMMYYYY = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const [year, month, day] = parts;
+        return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
+      }
+    } catch {}
+    return dateStr;
+  };
+
+  // Extract all unique dates
+  const allDates = useMemo(() => {
+    if (!enableDateFilter && !dateKey) return [];
+    const datesSet = new Set();
+    (data || []).forEach(row => {
+      const d = formatDateKey(row[dateKey]);
+      if (d) datesSet.add(d);
+    });
+    return Array.from(datesSet).sort();
+  }, [data, enableDateFilter, dateKey]);
 
   // Reset pagination on search
   const handleSearchChange = (e) => {
@@ -24,7 +72,18 @@ export default function DataTable({ data, columns, searchPlaceholder = "Search r
 
   // Filter & Sort data
   const processedData = useMemo(() => {
-    let result = [...data];
+    let result = [...(data || [])];
+
+    // Date range filter
+    if ((enableDateFilter || dateKey) && (startDate || endDate)) {
+      result = result.filter(row => {
+        const d = formatDateKey(row[dateKey]);
+        if (!d) return true;
+        if (startDate && d < startDate) return false;
+        if (endDate && d > endDate) return false;
+        return true;
+      });
+    }
 
     // Search filter
     if (searchTerm) {
@@ -60,7 +119,7 @@ export default function DataTable({ data, columns, searchPlaceholder = "Search r
     }
 
     return result;
-  }, [data, searchTerm, sortConfig, columns]);
+  }, [data, searchTerm, sortConfig, columns, enableDateFilter, dateKey, startDate, endDate]);
 
   // Pagination calculations
   const totalPages = Math.ceil(processedData.length / pageSize);
@@ -71,6 +130,162 @@ export default function DataTable({ data, columns, searchPlaceholder = "Search r
 
   return (
     <div className="table-card glass fade-in">
+      {title && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '20px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid #e2e8f0'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h3 style={{
+                margin: 0,
+                fontFamily: 'var(--font-heading)',
+                fontSize: '1.2rem',
+                fontWeight: 700,
+                color: '#002f6c',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                {icon}
+                {title}
+              </h3>
+              <span style={{
+                background: '#e0f2fe',
+                color: '#0369a1',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                padding: '2px 10px',
+                borderRadius: '99px'
+              }}>
+                {badge || `${processedData.length} records`}
+              </span>
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              {subtitle}
+              {(startDate || endDate) && (
+                <span style={{ color: '#0284c7', fontWeight: 600, marginLeft: '6px' }}>
+                  • Filtered: {startDate ? formatDateDDMMYYYY(startDate) : (allDates[0] ? formatDateDDMMYYYY(allDates[0]) : '')} to {endDate ? formatDateDDMMYYYY(endDate) : (allDates.length > 0 ? formatDateDDMMYYYY(allDates[allDates.length - 1]) : '')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Date Slicers */}
+          {enableDateFilter && allDates.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#002f6c', fontWeight: 600, fontSize: '0.8rem' }}>
+                <Calendar size={15} />
+                <span>Date:</span>
+              </div>
+
+              {/* Start Date */}
+              <div className="slicer-input-wrapper">
+                <input 
+                  type="date" 
+                  className={`slicer-date-input ${startDate ? 'active' : ''}`}
+                  value={startDate}
+                  min={allDates[0] || ''}
+                  max={endDate || (allDates.length > 0 ? allDates[allDates.length - 1] : '')}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setCurrentPage(1);
+                    if (onDateChange) onDateChange(e.target.value, endDate);
+                  }}
+                  title="Filter from Start Date"
+                  style={{ height: '32px', fontSize: '0.78rem', padding: '4px 8px' }}
+                />
+                {startDate && (
+                  <button 
+                    type="button" 
+                    className="slicer-clear-btn" 
+                    onClick={() => {
+                      setStartDate('');
+                      setCurrentPage(1);
+                      if (onDateChange) onDateChange('', endDate);
+                    }}
+                    title="Clear Start Date"
+                    style={{ width: '16px', height: '16px', marginLeft: '-22px' }}
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
+
+              <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700 }}>→</span>
+
+              {/* End Date */}
+              <div className="slicer-input-wrapper">
+                <input 
+                  type="date" 
+                  className={`slicer-date-input ${endDate ? 'active' : ''}`}
+                  value={endDate}
+                  min={startDate || (allDates[0] || '')}
+                  max={allDates.length > 0 ? allDates[allDates.length - 1] : ''}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setCurrentPage(1);
+                    if (onDateChange) onDateChange(startDate, e.target.value);
+                  }}
+                  title="Filter to End Date"
+                  style={{ height: '32px', fontSize: '0.78rem', padding: '4px 8px' }}
+                />
+                {endDate && (
+                  <button 
+                    type="button" 
+                    className="slicer-clear-btn" 
+                    onClick={() => {
+                      setEndDate('');
+                      setCurrentPage(1);
+                      if (onDateChange) onDateChange(startDate, '');
+                    }}
+                    title="Clear End Date"
+                    style={{ width: '16px', height: '16px', marginLeft: '-22px' }}
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
+
+              {/* Reset button */}
+              {(startDate || endDate) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartDate('');
+                    setEndDate('');
+                    setCurrentPage(1);
+                    if (onDateChange) onDateChange('', '');
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#64748b',
+                    background: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                  title="Reset date filter"
+                >
+                  <RotateCcw size={12} />
+                  Reset
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div className="table-header">
         <div className="search-box">
           <input 

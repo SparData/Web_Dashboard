@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, DollarSign, Award, Users, AlertTriangle, Percent, ShoppingBag, CheckCircle2 } from 'lucide-react';
+import { DollarSign, Award, Users, AlertTriangle, Percent, ShoppingBag, CheckCircle2 } from 'lucide-react';
 
 export default function MetricsGrid({ stats, onKpiClick }) {
   const cards = [

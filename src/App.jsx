@@ -1,20 +1,49 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, Image, ShoppingBag, Menu, X, Database, LogOut } from 'lucide-react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import { LayoutDashboard, CheckCircle2, ShoppingBag, LogOut } from 'lucide-react';
 import Filters from './components/Filters';
-import DashboardOverview from './pages/DashboardOverview';
-import AdAnalysis from './pages/AdAnalysis';
-import ProductInsights from './pages/ProductInsights';
-import Login from './pages/Login';
 import { bannerAdsData, productListingsData } from './data';
+
+// Dynamic code-splitting: load page components on-demand
+const DashboardOverview = lazy(() => import('./pages/DashboardOverview'));
+const AdAnalysis = lazy(() => import('./pages/AdAnalysis'));
+const ProductInsights = lazy(() => import('./pages/ProductInsights'));
+const Login = lazy(() => import('./pages/Login'));
+
+// Top-level date formatter utility
+function formatDateStr(dateVal) {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal;
+  }
+  if (dateVal instanceof Date) {
+    return dateVal.toISOString().split('T')[0];
+  }
+  return String(dateVal);
+}
+
+// Lightweight fallback spinner during chunk loading
+function DashboardLoadingFallback() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '380px', gap: '16px' }}>
+      <div style={{ width: '36px', height: '36px', border: '3px solid #e2e8f0', borderTop: '3px solid #002f6c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <span style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 600 }}>Loading dashboard analytics...</span>
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('dashboard_user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    try {
+      const savedUser = localStorage.getItem('dashboard_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
   });
   const [activeTab, setActiveTab] = useState('overview');
   const [filters, setFilters] = useState({
-    scrape_date: 'all',
+    start_date: '',
+    end_date: '',
     city_pincode: 'all',
     brand: 'all',
     category: 'all',
@@ -39,38 +68,35 @@ export default function App() {
     async function loadData() {
       try {
         setDbStatus('connecting');
-        const [adsRes, productsRes, distinctTitlesRes, distinctBrandsRes, avgPriceRes, avgDiscountRes, availabilityPercentageRes, avgSearchRankRes] = await Promise.all([
+        // Fetch ads, products, distinct options, and consolidated KPIs concurrently
+        const [adsRes, productsRes, distinctTitlesRes, distinctBrandsRes, kpisRes] = await Promise.all([
           fetch('http://localhost:5000/api/banner-ads'),
           fetch('http://localhost:5000/api/product-listings'),
           fetch('http://localhost:5000/api/distinct-titles'),
           fetch('http://localhost:5000/api/distinct-brands'),
-          fetch('http://localhost:5000/api/avg-price'),
-          fetch('http://localhost:5000/api/avg-discount'),
-          fetch('http://localhost:5000/api/availability-percentage'),
-          fetch('http://localhost:5000/api/avg-search-rank')
+          fetch('http://localhost:5000/api/kpis')
         ]);
 
-        if (!adsRes.ok || !productsRes.ok || !distinctTitlesRes.ok || !distinctBrandsRes.ok || !avgPriceRes.ok || !avgDiscountRes.ok || !availabilityPercentageRes.ok || !avgSearchRankRes.ok) {
+        if (!adsRes.ok || !productsRes.ok || !distinctTitlesRes.ok || !distinctBrandsRes.ok || !kpisRes.ok) {
           throw new Error('Failed to fetch from API');
         }
 
-        const adsData = await adsRes.json();
-        const productsData = await productsRes.json();
-        const distinctTitlesData = await distinctTitlesRes.json();
-        const distinctBrandsData = await distinctBrandsRes.json();
-        const avgPriceData = await avgPriceRes.json();
-        const avgDiscountData = await avgDiscountRes.json();
-        const availabilityPercentageData = await availabilityPercentageRes.json();
-        const avgSearchRankData = await avgSearchRankRes.json();
+        const [adsData, productsData, distinctTitlesData, distinctBrandsData, kpisData] = await Promise.all([
+          adsRes.json(),
+          productsRes.json(),
+          distinctTitlesRes.json(),
+          distinctBrandsRes.json(),
+          kpisRes.json()
+        ]);
 
         setBannerAds(adsData);
         setProductListings(productsData);
         setDistinctTitles(distinctTitlesData);
         setDbDistinctBrands(distinctBrandsData);
-        setDbAvgPrice(avgPriceData.avgPrice);
-        setDbAvgDiscount(avgDiscountData.avgDiscount);
-        setDbAvailabilityPercentage(availabilityPercentageData.availabilityPercentage);
-        setDbAvgSearchRank(avgSearchRankData.avgSearchRank);
+        setDbAvgPrice(kpisData.avgPrice);
+        setDbAvgDiscount(kpisData.avgDiscount);
+        setDbAvailabilityPercentage(kpisData.availabilityPercentage);
+        setDbAvgSearchRank(kpisData.avgSearchRank);
         setDbStatus('connected');
       } catch (err) {
         console.warn('⚠️ Server connection failed. Falling back to local mock data.', err);
@@ -78,405 +104,294 @@ export default function App() {
         setProductListings(productListingsData);
         setDistinctTitles(Array.from(new Set(productListingsData.map(p => p.title?.toLowerCase()))).filter(Boolean).sort());
         setDbDistinctBrands(Array.from(new Set(productListingsData.map(p => p.brand?.toLowerCase()))).filter(Boolean).sort());
-        const mockPrices = productListingsData.map(p => parseFloat(p.price)).filter(p => !isNaN(p));
-        const mockAvgPrice = mockPrices.length ? Math.round(mockPrices.reduce((sum, p) => sum + p, 0) / mockPrices.length) : 0;
-        setDbAvgPrice(mockAvgPrice);
-        const mockDiscounts = productListingsData.map(p => {
-          if (p.discount !== undefined && p.discount !== null) {
-            const d = parseFloat(p.discount);
-            if (!isNaN(d)) return d;
-          }
+
+        // Single-pass fallback KPI calculation for mock data
+        let mockTotalPrice = 0;
+        let mockPriceCount = 0;
+        let mockTotalDiscount = 0;
+        let mockDiscountCount = 0;
+        let mockAvailableCount = 0;
+        let mockTotalRank = 0;
+        let mockRankCount = 0;
+
+        for (let i = 0; i < productListingsData.length; i++) {
+          const p = productListingsData[i];
           const price = parseFloat(p.price);
-          const originalPrice = parseFloat(p.original_price);
-          if (!isNaN(price) && !isNaN(originalPrice) && originalPrice > 0) {
-            return ((originalPrice - price) / originalPrice) * 100;
+          if (!isNaN(price)) {
+            mockTotalPrice += price;
+            mockPriceCount++;
           }
-          return null;
-        }).filter(d => d !== null);
-        const mockAvgDiscount = mockDiscounts.length 
-          ? parseFloat((mockDiscounts.reduce((sum, d) => sum + d, 0) / mockDiscounts.length).toFixed(1)) 
-          : 0.0;
-        setDbAvgDiscount(mockAvgDiscount);
-        const mockAvailable = productListingsData.filter(p => p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes')).length;
-        const mockAvailabilityPercentage = productListingsData.length 
-          ? parseFloat(((mockAvailable / productListingsData.length) * 100).toFixed(2)) 
-          : 0.0;
-        setDbAvailabilityPercentage(mockAvailabilityPercentage);
-        const mockRanks = productListingsData.map(p => parseFloat(p.rank_num)).filter(r => !isNaN(r));
-        const mockAvgSearchRank = mockRanks.length ? Math.round(mockRanks.reduce((sum, r) => sum + r, 0) / mockRanks.length) : 0;
-        setDbAvgSearchRank(mockAvgSearchRank);
+          let d = null;
+          if (p.discount !== undefined && p.discount !== null) {
+            const parsedD = parseFloat(p.discount);
+            if (!isNaN(parsedD)) d = parsedD;
+          }
+          if (d === null) {
+            const origPrice = parseFloat(p.original_price);
+            if (!isNaN(price) && !isNaN(origPrice) && origPrice > 0) {
+              d = ((origPrice - price) / origPrice) * 100;
+            }
+          }
+          if (d !== null) {
+            mockTotalDiscount += d;
+            mockDiscountCount++;
+          }
+          const isAvail = p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes');
+          if (isAvail) mockAvailableCount++;
+          const rank = parseFloat(p.rank_num);
+          if (!isNaN(rank)) {
+            mockTotalRank += rank;
+            mockRankCount++;
+          }
+        }
+
+        setDbAvgPrice(mockPriceCount ? Math.round(mockTotalPrice / mockPriceCount) : 0);
+        setDbAvgDiscount(mockDiscountCount ? parseFloat((mockTotalDiscount / mockDiscountCount).toFixed(1)) : 0.0);
+        setDbAvailabilityPercentage(productListingsData.length ? parseFloat(((mockAvailableCount / productListingsData.length) * 100).toFixed(2)) : 0.0);
+        setDbAvgSearchRank(mockRankCount ? Math.round(mockTotalRank / mockRankCount) : 0);
         setDbStatus('offline');
       }
     }
     loadData();
   }, []);
 
-  // Extract filter dropdown options dynamically & apply client brand limits
+  // Single-pass computation for dynamic filter options
   const availableOptions = useMemo(() => {
-    const formatDateStr = (dateVal) => {
-      if (!dateVal) return '';
-      if (typeof dateVal === 'string') {
-        return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal;
-      }
-      if (dateVal instanceof Date) {
-        return dateVal.toISOString().split('T')[0];
-      }
-      return String(dateVal);
-    };
-
-    const matchFilter = (p, filterKey) => {
-      if (filterKey === 'scrape_date') {
-        return filters.scrape_date === 'all' || formatDateStr(p.scrape_date) === filters.scrape_date;
-      }
-      if (filterKey === 'city_pincode') {
-        if (filters.city_pincode === 'all') return true;
-        const [filterCity, filterPin] = filters.city_pincode.split('|');
-        const itemCity = p.city?.trim() || '';
-        const itemPin = p.pincode?.trim() || '';
-        if (filterPin === 'all') {
-          return itemCity.toLowerCase() === filterCity.toLowerCase();
-        } else {
-          return (itemCity.toLowerCase() === filterCity.toLowerCase()) && 
-                 (itemPin === filterPin);
-        }
-      }
-      if (filterKey === 'brand') {
-        return filters.brand === 'all' || p.brand === filters.brand;
-      }
-      if (filterKey === 'category') {
-        return filters.category === 'all' || p.category === filters.category;
-      }
-      if (filterKey === 'source_chain') {
-        return filters.source_chain === 'all' || p.source_chain === filters.source_chain;
-      }
-      if (filterKey === 'product') {
-        return filters.product === 'all' || p.product === filters.product;
-      }
-      return true;
-    };
-
-    const filterProductsExcept = (excludeKey) => {
-      let list = productListings;
-      if (user?.brandLimit) {
-        list = list.filter(p => p.brand?.toLowerCase() === user.brandLimit.toLowerCase());
-      }
-      return list.filter(p => {
-        return ['scrape_date', 'city_pincode', 'brand', 'category', 'source_chain', 'product'].every(key => {
-          if (key === excludeKey) return true;
-          return matchFilter(p, key);
-        });
-      });
-    };
-
-    const datesProducts = filterProductsExcept('scrape_date');
-    const dates = Array.from(new Set(
-      datesProducts.map(p => formatDateStr(p.scrape_date))
-    )).filter(Boolean).sort();
-
-    const cityPincodesProducts = filterProductsExcept('city_pincode');
+    const datesSet = new Set();
     const cityPincodesMap = {};
-    cityPincodesProducts.forEach(p => {
-      const city = p.city?.trim();
-      const pin = p.pincode?.trim();
-      if (city) {
-        if (!cityPincodesMap[city]) {
-          cityPincodesMap[city] = new Set();
-        }
-        if (pin) {
-          cityPincodesMap[city].add(pin);
+    const brandsSet = new Set();
+    const categoriesSet = new Set();
+    const retailersSet = new Set();
+    const searchKeywordsSet = new Set();
+
+    const filterCityPin = filters.city_pincode !== 'all' ? filters.city_pincode.split('|') : null;
+    const filterCity = filterCityPin ? filterCityPin[0].toLowerCase() : null;
+    const filterPin = filterCityPin ? filterCityPin[1] : null;
+    const brandLimitLower = user?.brandLimit ? user.brandLimit.toLowerCase() : null;
+
+    for (let i = 0; i < productListings.length; i++) {
+      const p = productListings[i];
+      if (brandLimitLower && p.brand?.toLowerCase() !== brandLimitLower) continue;
+
+      const dateStr = formatDateStr(p.scrape_date);
+      const matchDate = (!filters.start_date || dateStr >= filters.start_date) && 
+                        (!filters.end_date || dateStr <= filters.end_date);
+
+      const itemCity = p.city?.trim() || '';
+      const itemPin = p.pincode?.trim() || '';
+      const matchCityPin = !filterCityPin || (
+        filterPin === 'all' 
+          ? itemCity.toLowerCase() === filterCity 
+          : (itemCity.toLowerCase() === filterCity && itemPin === filterPin)
+      );
+
+      const matchBrand = filters.brand === 'all' || p.brand === filters.brand;
+      const matchCategory = filters.category === 'all' || p.category === filters.category;
+      const matchRetailer = filters.source_chain === 'all' || p.source_chain === filters.source_chain;
+      const matchProduct = filters.product === 'all' || p.product === filters.product;
+
+      // Faceted collection: an option for filter X is populated if item matches all other filters
+      if (matchCityPin && matchBrand && matchCategory && matchRetailer && matchProduct) {
+        if (dateStr) datesSet.add(dateStr);
+      }
+      if (matchDate && matchBrand && matchCategory && matchRetailer && matchProduct) {
+        if (itemCity) {
+          if (!cityPincodesMap[itemCity]) cityPincodesMap[itemCity] = new Set();
+          if (itemPin) cityPincodesMap[itemCity].add(itemPin);
         }
       }
-    });
+      if (matchDate && matchCityPin && matchCategory && matchRetailer && matchProduct) {
+        if (p.brand) brandsSet.add(p.brand);
+      }
+      if (matchDate && matchCityPin && matchBrand && matchRetailer && matchProduct) {
+        if (p.category) categoriesSet.add(p.category);
+      }
+      if (matchDate && matchCityPin && matchBrand && matchCategory && matchProduct) {
+        if (p.source_chain) retailersSet.add(p.source_chain);
+      }
+      if (matchDate && matchCityPin && matchBrand && matchCategory && matchRetailer) {
+        if (p.product) searchKeywordsSet.add(p.product);
+      }
+    }
+
     const cityPincodes = {};
     Object.keys(cityPincodesMap).sort().forEach(city => {
       cityPincodes[city] = Array.from(cityPincodesMap[city]).sort();
     });
 
-    const brandsProducts = filterProductsExcept('brand');
-    const brands = Array.from(new Set(
-      brandsProducts.map(p => p.brand)
-    )).filter(Boolean).sort();
-
-    const categoriesProducts = filterProductsExcept('category');
-    const categories = Array.from(new Set(
-      categoriesProducts.map(p => p.category)
-    )).filter(Boolean).sort();
-
-    const retailersProducts = filterProductsExcept('source_chain');
-    const retailers = Array.from(new Set(
-      retailersProducts.map(p => p.source_chain)
-    )).filter(Boolean).sort();
-
-    const searchKeywordsProducts = filterProductsExcept('product');
-    const searchKeywords = Array.from(new Set(
-      searchKeywordsProducts.map(p => p.product)
-    )).filter(Boolean).sort();
-
-    return { dates, cityPincodes, brands, categories, retailers, searchKeywords };
+    return {
+      dates: Array.from(datesSet).sort(),
+      cityPincodes,
+      brands: Array.from(brandsSet).sort(),
+      categories: Array.from(categoriesSet).sort(),
+      retailers: Array.from(retailersSet).sort(),
+      searchKeywords: Array.from(searchKeywordsSet).sort()
+    };
   }, [productListings, user, filters]);
 
   // Filter datasets based on active filters & user brand limit
   const filteredBannerAds = useMemo(() => {
-    const formatDateStr = (dateVal) => {
-      if (!dateVal) return '';
-      if (typeof dateVal === 'string') {
-        return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal;
-      }
-      if (dateVal instanceof Date) {
-        return dateVal.toISOString().split('T')[0];
-      }
-      return String(dateVal);
-    };
+    const brandLimitLower = user?.brandLimit ? user.brandLimit.toLowerCase() : null;
+    const result = [];
 
-    return bannerAds.filter(ad => {
-      if (user?.brandLimit && ad.brand?.toLowerCase() !== user.brandLimit.toLowerCase()) {
-        return false;
-      }
-      const matchDate = filters.scrape_date === 'all' || 
-                        formatDateStr(ad.scrape_date) === filters.scrape_date;
-      const matchBrand = filters.brand === 'all' || ad.brand === filters.brand;
-      const matchCategory = filters.category === 'all' || ad.category === filters.category;
-      const matchProduct = filters.product === 'all' || ad.search_keyword === filters.product;
-      return matchDate && matchBrand && matchCategory && matchProduct;
-    });
+    for (let i = 0; i < bannerAds.length; i++) {
+      const ad = bannerAds[i];
+      if (brandLimitLower && ad.brand?.toLowerCase() !== brandLimitLower) continue;
+      if (filters.brand !== 'all' && ad.brand !== filters.brand) continue;
+      if (filters.category !== 'all' && ad.category !== filters.category) continue;
+      if (filters.product !== 'all' && ad.search_keyword !== filters.product) continue;
+
+      const dateStr = formatDateStr(ad.scrape_date);
+      if (filters.start_date && dateStr < filters.start_date) continue;
+      if (filters.end_date && dateStr > filters.end_date) continue;
+
+      result.push(ad);
+    }
+    return result;
   }, [bannerAds, filters, user]);
 
   const filteredProductListings = useMemo(() => {
-    const formatDateStr = (dateVal) => {
-      if (!dateVal) return '';
-      if (typeof dateVal === 'string') {
-        return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal;
-      }
-      if (dateVal instanceof Date) {
-        return dateVal.toISOString().split('T')[0];
-      }
-      return String(dateVal);
-    };
+    const filterCityPin = filters.city_pincode !== 'all' ? filters.city_pincode.split('|') : null;
+    const filterCity = filterCityPin ? filterCityPin[0].toLowerCase() : null;
+    const filterPin = filterCityPin ? filterCityPin[1] : null;
+    const brandLimitLower = user?.brandLimit ? user.brandLimit.toLowerCase() : null;
 
-    return productListings.filter(p => {
-      if (user?.brandLimit && p.brand?.toLowerCase() !== user.brandLimit.toLowerCase()) {
-        return false;
-      }
-      const matchDate = filters.scrape_date === 'all' || 
-                        formatDateStr(p.scrape_date) === filters.scrape_date;
-      
-      let matchCityPincode = true;
-      if (filters.city_pincode !== 'all') {
-        const [filterCity, filterPin] = filters.city_pincode.split('|');
-        const itemCity = p.city?.trim() || '';
+    const result = [];
+    for (let i = 0; i < productListings.length; i++) {
+      const p = productListings[i];
+      if (brandLimitLower && p.brand?.toLowerCase() !== brandLimitLower) continue;
+      if (filters.brand !== 'all' && p.brand !== filters.brand) continue;
+      if (filters.category !== 'all' && p.category !== filters.category) continue;
+      if (filters.source_chain !== 'all' && p.source_chain !== filters.source_chain) continue;
+      if (filters.product !== 'all' && p.product !== filters.product) continue;
+
+      const dateStr = formatDateStr(p.scrape_date);
+      if (filters.start_date && dateStr < filters.start_date) continue;
+      if (filters.end_date && dateStr > filters.end_date) continue;
+
+      if (filterCityPin) {
+        const itemCity = (p.city?.trim() || '').toLowerCase();
         const itemPin = p.pincode?.trim() || '';
-        if (filterPin === 'all') {
-          matchCityPincode = itemCity.toLowerCase() === filterCity.toLowerCase();
-        } else {
-          matchCityPincode = (itemCity.toLowerCase() === filterCity.toLowerCase()) && 
-                             (itemPin === filterPin);
-        }
+        if (itemCity !== filterCity) continue;
+        if (filterPin !== 'all' && itemPin !== filterPin) continue;
       }
-      
-      const matchBrand = filters.brand === 'all' || p.brand === filters.brand;
-      const matchCategory = filters.category === 'all' || p.category === filters.category;
-      const matchPlatform = filters.source_chain === 'all' || p.source_chain === filters.source_chain;
-      const matchProduct = filters.product === 'all' || p.product === filters.product;
-      
-      return matchDate && matchCityPincode && matchBrand && matchCategory && matchPlatform && matchProduct;
-    });
+
+      result.push(p);
+    }
+    return result;
   }, [productListings, filters, user]);
 
-  // Dynamic Timeline Calculation for Sparklines and Trends (omitting the date filter)
-  const timelineBannerAds = useMemo(() => {
-    return bannerAds.filter(ad => {
-      if (user?.brandLimit && ad.brand?.toLowerCase() !== user.brandLimit.toLowerCase()) {
-        return false;
-      }
-      const matchBrand = filters.brand === 'all' || ad.brand === filters.brand;
-      const matchCategory = filters.category === 'all' || ad.category === filters.category;
-      const matchProduct = filters.product === 'all' || ad.search_keyword === filters.product;
-      return matchBrand && matchCategory && matchProduct;
-    });
-  }, [bannerAds, filters.brand, filters.category, filters.product, user]);
-
-  const timelineProductListings = useMemo(() => {
-    return productListings.filter(p => {
-      if (user?.brandLimit && p.brand?.toLowerCase() !== user.brandLimit.toLowerCase()) {
-        return false;
-      }
-      
-      let matchCityPincode = true;
-      if (filters.city_pincode !== 'all') {
-        const [filterCity, filterPin] = filters.city_pincode.split('|');
-        const itemCity = p.city?.trim() || '';
-        const itemPin = p.pincode?.trim() || '';
-        if (filterPin === 'all') {
-          matchCityPincode = itemCity.toLowerCase() === filterCity.toLowerCase();
-        } else {
-          matchCityPincode = (itemCity.toLowerCase() === filterCity.toLowerCase()) && 
-                             (itemPin === filterPin);
-        }
-      }
-      
-      const matchBrand = filters.brand === 'all' || p.brand === filters.brand;
-      const matchCategory = filters.category === 'all' || p.category === filters.category;
-      const matchPlatform = filters.source_chain === 'all' || p.source_chain === filters.source_chain;
-      const matchProduct = filters.product === 'all' || p.product === filters.product;
-      
-      return matchCityPincode && matchBrand && matchCategory && matchPlatform && matchProduct;
-    });
-  }, [productListings, filters.city_pincode, filters.brand, filters.category, filters.source_chain, filters.product, user]);
-
-  const formatDateStr = (dateVal) => {
-    if (!dateVal) return '';
-    if (typeof dateVal === 'string') {
-      return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal;
-    }
-    if (dateVal instanceof Date) {
-      return dateVal.toISOString().split('T')[0];
-    }
-    return String(dateVal);
-  };
-
-  const timelineDates = useMemo(() => {
-    const dates = new Set([
-      ...timelineBannerAds.map(ad => formatDateStr(ad.scrape_date)),
-      ...timelineProductListings.map(p => formatDateStr(p.scrape_date))
-    ]);
-    return Array.from(dates).filter(Boolean).sort();
-  }, [timelineBannerAds, timelineProductListings]);
-
-  // Compute active statistics over the filtered dataset as a whole
+  // Single-pass computation for active statistics over filtered dataset
   const stats = useMemo(() => {
-    const computeKpis = (ads, products) => {
-      const totalAds = ads.length;
-      
-      const prices = products.map(p => parseFloat(p.price)).filter(p => !isNaN(p));
-      const avgPrice = prices.length 
-        ? Math.round(prices.reduce((sum, p) => sum + p, 0) / prices.length) 
-        : 0;
+    let totalPrice = 0;
+    let priceCount = 0;
+    let totalRating = 0;
+    let ratingCount = 0;
+    let availableCount = 0;
+    let totalDiscount = 0;
+    let discountCount = 0;
+    let totalRank = 0;
+    let rankCount = 0;
+    const distinctProductTitles = new Set();
+    const distinctFilteredBrands = new Set();
 
-      const ratings = products.map(p => parseFloat(p.rating_of_5)).filter(r => !isNaN(r));
-      const avgRating = ratings.length 
-        ? (ratings.reduce((sum, r) => sum + r, 0) / ratings.length).toFixed(2)
-        : "0.00";
+    const len = filteredProductListings.length;
+    for (let i = 0; i < len; i++) {
+      const p = filteredProductListings[i];
 
-      const totalProducts = products.length;
-      const availableCount = products.filter(p => p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes')).length;
-      const availabilityRate = totalProducts 
-        ? parseFloat(((availableCount / totalProducts) * 100).toFixed(2)) 
-        : 0.0;
-      const outOfStockCount = totalProducts - availableCount;
-      const outOfStockRate = totalProducts
-        ? parseFloat(((outOfStockCount / totalProducts) * 100).toFixed(2))
-        : 0.0;
-
-      const discounts = products.map(p => {
-        if (p.discount !== undefined && p.discount !== null) {
-          const d = parseFloat(p.discount);
-          if (!isNaN(d)) return d;
-        }
+      // Price aggregation
+      if (p.price !== undefined && p.price !== null) {
         const price = parseFloat(p.price);
-        const originalPrice = parseFloat(p.original_price);
-        if (!isNaN(price) && !isNaN(originalPrice) && originalPrice > 0) {
-          return ((originalPrice - price) / originalPrice) * 100;
+        if (!isNaN(price)) {
+          totalPrice += price;
+          priceCount++;
         }
-        return null;
-      }).filter(d => d !== null);
+      }
 
-      const avgDiscount = discounts.length 
-        ? parseFloat((discounts.reduce((sum, d) => sum + d, 0) / discounts.length).toFixed(1)) 
-        : 0.0;
+      // Rating aggregation
+      if (p.rating_of_5 !== undefined && p.rating_of_5 !== null) {
+        const r = parseFloat(p.rating_of_5);
+        if (!isNaN(r)) {
+          totalRating += r;
+          ratingCount++;
+        }
+      }
 
-      const distinctProducts = Array.from(new Set(products.map(p => p.title?.toLowerCase()))).filter(Boolean).length;
+      // Search rank aggregation
+      if (p.rank_num !== undefined && p.rank_num !== null) {
+        const r = parseFloat(p.rank_num);
+        if (!isNaN(r) && r > 0) {
+          totalRank += r;
+          rankCount++;
+        }
+      }
 
-      const ranks = products.map(p => parseFloat(p.rank_num)).filter(r => !isNaN(r));
-      const avgSearchRank = ranks.length 
-        ? Math.round(ranks.reduce((sum, r) => sum + r, 0) / ranks.length) 
-        : 0;
+      // Availability check
+      const isAvailable = p.availability === true || p.availability === 'true' || 
+        (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes');
+      if (isAvailable) {
+        availableCount++;
+      }
 
-      return { totalAds, avgPrice, avgRating, availabilityRate, outOfStockRate, avgDiscount, distinctProducts, avgSearchRank };
-    };
+      // Discount aggregation
+      let d = null;
+      if (p.discount !== undefined && p.discount !== null) {
+        const parsedD = parseFloat(p.discount);
+        if (!isNaN(parsedD)) d = parsedD;
+      }
+      if (d === null) {
+        const price = parseFloat(p.price);
+        const origPrice = parseFloat(p.original_price);
+        if (!isNaN(price) && !isNaN(origPrice) && origPrice > 0) {
+          d = ((origPrice - price) / origPrice) * 100;
+        }
+      }
+      if (d !== null) {
+        totalDiscount += d;
+        discountCount++;
+      }
 
-    const currentKpis = computeKpis(filteredBannerAds, filteredProductListings);
+      // Distinct SKU & Brand sets
+      if (p.title) distinctProductTitles.add(p.title.toLowerCase());
+      if (p.brand) distinctFilteredBrands.add(p.brand.toLowerCase());
+    }
 
-    // Check if any interactive filters are applied in the UI
-    const hasActiveFilters = filters.scrape_date !== 'all' || 
+    const hasActiveFilters = Boolean(filters.start_date) || 
+                             Boolean(filters.end_date) || 
                              filters.city_pincode !== 'all' || 
                              filters.brand !== 'all' || 
                              filters.category !== 'all' || 
                              filters.source_chain !== 'all' || 
                              filters.product !== 'all';
 
-    // Compute total brands count respecting user brandLimit
+    const isFiltered = Boolean(user?.brandLimit || hasActiveFilters);
+
+    // Calculated metrics from active filtered dataset
+    const calcAvgPrice = priceCount > 0 ? Math.round(totalPrice / priceCount) : 0;
+    const calcAvgDiscount = discountCount > 0 ? parseFloat((totalDiscount / discountCount).toFixed(1)) : 0.0;
+    const calcAvailabilityRate = len > 0 ? parseFloat(((availableCount / len) * 100).toFixed(2)) : 0.0;
+    const calcOutOfStockRate = len > 0 ? parseFloat((100 - calcAvailabilityRate).toFixed(2)) : 0.0;
+    const calcAvgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(2) : "0.00";
+    const calcAvgSearchRank = rankCount > 0 ? Math.round(totalRank / rankCount) : 0;
+
+    // Values to display: use db summary if unfiltered, or calculated metrics if filters active
+    const displayAvgPrice = isFiltered ? calcAvgPrice : (dbAvgPrice ?? calcAvgPrice);
+    const displayAvgDiscount = isFiltered ? calcAvgDiscount : (dbAvgDiscount ?? calcAvgDiscount);
+    const displayAvailabilityRate = isFiltered ? calcAvailabilityRate : (dbAvailabilityPercentage ?? calcAvailabilityRate);
+    const displayOutOfStockRate = isFiltered ? calcOutOfStockRate : (dbAvailabilityPercentage !== null ? parseFloat((100 - dbAvailabilityPercentage).toFixed(2)) : calcOutOfStockRate);
+    const displayAvgSearchRank = isFiltered ? calcAvgSearchRank : (dbAvgSearchRank ?? calcAvgSearchRank);
+
     let totalBrandsCount = dbDistinctBrands.length;
     if (user?.brandLimit) {
       const hasBrand = dbDistinctBrands.some(b => b.toLowerCase() === user.brandLimit.toLowerCase());
       totalBrandsCount = hasBrand ? 1 : 0;
     } else if (hasActiveFilters) {
-      totalBrandsCount = new Set(filteredProductListings.map(p => p.brand?.toLowerCase()).filter(Boolean)).size;
-    }
-
-    // Determine average price to display
-    let displayAvgPrice = dbAvgPrice;
-    if (user?.brandLimit || hasActiveFilters) {
-      // If brand limit is present or filters are active, use the filtered products average
-      const prices = filteredProductListings.map(p => parseFloat(p.price)).filter(p => !isNaN(p));
-      displayAvgPrice = prices.length 
-        ? Math.round(prices.reduce((sum, p) => sum + p, 0) / prices.length) 
-        : 0;
-    } else if (displayAvgPrice === null || displayAvgPrice === undefined) {
-      displayAvgPrice = currentKpis.avgPrice;
-    }
-
-    // Determine average discount to display
-    let displayAvgDiscount = dbAvgDiscount;
-    if (user?.brandLimit || hasActiveFilters) {
-      // If brand limit is present or filters are active, use the filtered products average discount
-      const discounts = filteredProductListings.map(p => {
-        if (p.discount !== undefined && p.discount !== null) {
-          const d = parseFloat(p.discount);
-          if (!isNaN(d)) return d;
-        }
-        const price = parseFloat(p.price);
-        const originalPrice = parseFloat(p.original_price);
-        if (!isNaN(price) && !isNaN(originalPrice) && originalPrice > 0) {
-          return ((originalPrice - price) / originalPrice) * 100;
-        }
-        return null;
-      }).filter(d => d !== null);
-      displayAvgDiscount = discounts.length 
-        ? parseFloat((discounts.reduce((sum, d) => sum + d, 0) / discounts.length).toFixed(1)) 
-        : 0.0;
-    } else if (displayAvgDiscount === null || displayAvgDiscount === undefined) {
-      displayAvgDiscount = currentKpis.avgDiscount;
-    }
-
-    // Determine availability rate to display
-    let displayAvailabilityRate = dbAvailabilityPercentage;
-    if (user?.brandLimit || hasActiveFilters) {
-      // If brand limit is present or filters are active, use the filtered products availability rate
-      const totalBrandProducts = filteredProductListings.length;
-      const availableCount = filteredProductListings.filter(p => p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes')).length;
-      displayAvailabilityRate = totalBrandProducts 
-        ? parseFloat(((availableCount / totalBrandProducts) * 100).toFixed(2)) 
-        : 0.0;
-    } else if (displayAvailabilityRate === null || displayAvailabilityRate === undefined) {
-      displayAvailabilityRate = currentKpis.availabilityRate;
-    }
-
-    // Determine out of stock rate to display
-    let displayOutOfStockRate = dbAvailabilityPercentage !== null ? parseFloat((100 - dbAvailabilityPercentage).toFixed(2)) : null;
-    if (user?.brandLimit || hasActiveFilters) {
-      const totalBrandProducts = filteredProductListings.length;
-      const availableCount = filteredProductListings.filter(p => p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes')).length;
-      const outOfStockCount = totalBrandProducts - availableCount;
-      displayOutOfStockRate = totalBrandProducts 
-        ? parseFloat(((outOfStockCount / totalBrandProducts) * 100).toFixed(2)) 
-        : 0.0;
-    } else if (displayOutOfStockRate === null || displayOutOfStockRate === undefined) {
-      displayOutOfStockRate = currentKpis.outOfStockRate;
+      totalBrandsCount = distinctFilteredBrands.size;
     }
 
     return {
       distinctProducts: {
-        value: currentKpis.distinctProducts,
+        value: distinctProductTitles.size,
         label: 'Total Products',
         unit: 'products'
       },
@@ -491,7 +406,7 @@ export default function App() {
         unit: '₹'
       },
       avgRating: {
-        value: currentKpis.avgRating,
+        value: calcAvgRating,
         label: 'Average Rating',
         unit: '/ 5 ★'
       },
@@ -509,13 +424,18 @@ export default function App() {
         value: displayOutOfStockRate,
         label: 'Out of Stock %',
         unit: '%'
+      },
+      avgSearchRank: {
+        value: displayAvgSearchRank,
+        label: 'Avg Search Rank',
+        unit: '#'
       }
     };
-  }, [filteredBannerAds, filteredProductListings, dbDistinctBrands, dbAvgPrice, dbAvgDiscount, dbAvailabilityPercentage, dbAvgSearchRank, user, filters]);
+  }, [filteredProductListings, dbDistinctBrands, dbAvgPrice, dbAvgDiscount, dbAvailabilityPercentage, dbAvgSearchRank, user, filters]);
 
   const handleKpiClick = (kpiKey) => {
     if (['avgPrice', 'avgRating', 'avgDiscount', 'availabilityRate', 'totalBrands', 'distinctProducts', 'outOfStockRate'].includes(kpiKey)) {
-      if (user.dashboardId === 'full' || user.dashboardId === 'catalog-focus') {
+      if (user?.dashboardId === 'full' || user?.dashboardId === 'catalog-focus') {
         setActiveTab('products');
       }
     }
@@ -533,7 +453,14 @@ export default function App() {
           />
         );
       case 'ads':
-        return <AdAnalysis bannerAds={filteredBannerAds} />;
+        return (
+          <AdAnalysis 
+            bannerAds={filteredBannerAds} 
+            productListings={filteredProductListings} 
+            stats={stats} 
+            onKpiClick={handleKpiClick}
+          />
+        );
       case 'products':
         return <ProductInsights productListings={filteredProductListings} distinctTitles={distinctTitles} />;
       default:
@@ -543,13 +470,17 @@ export default function App() {
 
   if (!user) {
     return (
-      <Login 
-        onLogin={(userData) => {
-          localStorage.setItem('dashboard_user', JSON.stringify(userData));
-          setUser(userData);
-          setActiveTab('overview');
-        }} 
-      />
+      <Suspense fallback={<DashboardLoadingFallback />}>
+        <Login 
+          onLogin={(userData) => {
+            try {
+              localStorage.setItem('dashboard_user', JSON.stringify(userData));
+            } catch {}
+            setUser(userData);
+            setActiveTab('overview');
+          }} 
+        />
+      </Suspense>
     );
   }
 
@@ -578,8 +509,8 @@ export default function App() {
                   className={`nav-item ${activeTab === 'ads' ? 'active' : ''}`}
                   onClick={() => { setActiveTab('ads'); setMobileMenuOpen(false); }}
                 >
-                  <Image size={18} />
-                  <span>Banner Data</span>
+                  <CheckCircle2 size={18} />
+                  <span>Availability</span>
                 </div>
               </li>
             )}
@@ -599,7 +530,9 @@ export default function App() {
                 className="nav-item"
                 style={{ color: 'var(--danger)', marginTop: '24px' }}
                 onClick={() => {
-                  localStorage.removeItem('dashboard_user');
+                  try {
+                    localStorage.removeItem('dashboard_user');
+                  } catch {}
                   setUser(null);
                 }}
               >
@@ -622,11 +555,20 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <h1>Automated BI Dashboard</h1>
               {dbStatus === 'connected' ? (
-                <span className="badge success" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>Live Database</span>
+                <span className="badge success" style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Connected to PostgreSQL database: Analytics_DB on port 5000">
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
+                  Live Database
+                </span>
               ) : dbStatus === 'connecting' ? (
-                <span className="badge warning" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>Connecting DB...</span>
+                <span className="badge warning" style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Fetching records from PostgreSQL...">
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                  Connecting DB...
+                </span>
               ) : (
-                <span className="badge danger" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>Offline (Demo Mode)</span>
+                <span className="badge danger" style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Backend server at http://localhost:5000 is not reachable">
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#ef4444', display: 'inline-block' }} />
+                  Offline (Demo Mode)
+                </span>
               )}
             </div>
             <p>Comprehensive insights for Digital Shelf Share, Banner Ads, and Product Listings</p>
@@ -634,8 +576,8 @@ export default function App() {
 
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>{user.email}</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{user.role}</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#000000' }}>{user.email}</span>
+              <span style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600 }}>{user.role}</span>
             </div>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>|</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -653,7 +595,9 @@ export default function App() {
 
         {/* Dynamic Page Views */}
         <div style={{ minHeight: '60vh' }}>
-          {renderActiveContent()}
+          <Suspense fallback={<DashboardLoadingFallback />}>
+            {renderActiveContent()}
+          </Suspense>
         </div>
       </main>
     </div>

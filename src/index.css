@@ -329,17 +329,11 @@ body {
 /* Filters Panel */
 .filter-panel {
   display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   margin-bottom: 32px;
-  overflow-x: auto;
-  scrollbar-width: none; /* Firefox */
-}
-
-.filter-panel::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
 }
 
 .filter-group {
@@ -348,12 +342,60 @@ body {
   gap: 4px;
 }
 
+.filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 18px;
+}
+
 .filter-group label {
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+}
+
+.filter-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: filterClearPopIn 0.2s ease-out;
+}
+
+.filter-clear-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  transform: scale(1.15);
+  box-shadow: 0 2px 5px rgba(239, 68, 68, 0.3);
+}
+
+.filter-clear-btn:active {
+  transform: scale(0.95);
+}
+
+@keyframes filterClearPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .filter-control {
@@ -368,6 +410,14 @@ body {
   min-width: 110px;
 }
 
+.filter-control.active-filter {
+  border-color: rgba(0, 47, 108, 0.45);
+  background-color: #f8fafc;
+  font-weight: 500;
+  color: var(--primary);
+  box-shadow: 0 0 0 1px rgba(0, 47, 108, 0.1);
+}
+
 .filter-control option,
 .filter-control optgroup {
   background-color: var(--bg-dropdown);
@@ -377,6 +427,37 @@ body {
 .filter-control:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.filter-reset-btn {
+  margin-left: auto;
+  align-self: flex-end;
+  white-space: nowrap;
+  padding: 8px 14px;
+  height: 35px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-reset-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
+  transform: translateY(-1px);
+}
+
+.filter-reset-btn:active {
+  transform: translateY(0);
 }
 
 /* Charts Grid */
@@ -637,4 +718,125 @@ table.dashboard-table tr:hover td {
   .charts-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Date Slicers Toolbar */
+.slicer-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.slicer-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slicer-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.slicer-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.slicer-date-input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  outline: none;
+  height: 34px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.slicer-date-input:focus,
+.slicer-date-input.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+  background: #ffffff;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.slicer-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  cursor: pointer;
+  margin-left: -26px;
+  margin-right: 8px;
+  z-index: 2;
+  transition: all 0.15s ease;
+}
+
+.slicer-clear-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.slicer-preset-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.slicer-preset-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-primary);
+  border-color: #94a3b8;
+}
+
+.slicer-preset-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 2px 6px rgba(0, 47, 108, 0.2);
+}
+
+.slicer-info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
 }

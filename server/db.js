@@ -1,7 +1,12 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
 
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const { Pool } = pg;
 
@@ -12,8 +17,11 @@ const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
+  password: String(process.env.DB_PASSWORD || ''),
   port: parseInt(process.env.DB_PORT || '5432', 10),
+  max: 20, // Maximum number of connection clients in pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30s
+  connectionTimeoutMillis: 5000, // Return an error after 5s if connection cannot be established
 });
 
 // Test connection on startup
