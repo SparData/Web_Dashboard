@@ -1,7 +1,31 @@
-import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ChevronLeft, ChevronRight, Search, Calendar, X, RotateCcw } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { ArrowUpDown, ChevronLeft, ChevronRight, Search, Calendar, X, RotateCcw, Tag } from 'lucide-react';
 
-export default function DataTable({ 
+// Static date helper functions moved outside component scope
+function formatDateKey(dateVal) {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal.trim();
+  }
+  if (dateVal instanceof Date) {
+    return dateVal.toISOString().split('T')[0];
+  }
+  return String(dateVal).trim();
+}
+
+function formatDateDDMMYYYY(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
+    }
+  } catch {}
+  return dateStr;
+}
+
+function DataTable({ 
   data, 
   columns, 
   searchPlaceholder = "Search records...", 
@@ -11,38 +35,18 @@ export default function DataTable({
   icon,
   enableDateFilter = false,
   dateKey = 'scrape_date',
-  onDateChange
+  onDateChange,
+  enableKeywordFilter = false,
+  keywordKey = 'product',
+  onKeywordChange
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [keywordTerm, setKeywordTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
-  // Helper date key extractor
-  const formatDateKey = (dateVal) => {
-    if (!dateVal) return '';
-    if (typeof dateVal === 'string') {
-      return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal.trim();
-    }
-    if (dateVal instanceof Date) {
-      return dateVal.toISOString().split('T')[0];
-    }
-    return String(dateVal).trim();
-  };
-
-  const formatDateDDMMYYYY = (dateStr) => {
-    if (!dateStr) return '';
-    try {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        const [year, month, day] = parts;
-        return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
-      }
-    } catch {}
-    return dateStr;
-  };
 
   // Extract all unique dates
   const allDates = useMemo(() => {
@@ -55,27 +59,40 @@ export default function DataTable({
     return Array.from(datesSet).sort();
   }, [data, enableDateFilter, dateKey]);
 
+  // Extract all unique keywords
+  const allKeywords = useMemo(() => {
+    if (!enableKeywordFilter) return [];
+    const keywordsSet = new Set();
+    (data || []).forEach(row => {
+      const kw = (row[keywordKey] || row.search_keyword || row.keyword || row.product || row.category);
+      if (kw && typeof kw === 'string') {
+        const trimmed = kw.trim();
+        if (trimmed) keywordsSet.add(trimmed);
+      }
+    });
+    return Array.from(keywordsSet).sort();
+  }, [data, enableKeywordFilter, keywordKey]);
+
   // Reset pagination on search
-  const handleSearchChange = (e) => {
+  const handleSearchChange = useCallback((e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
-  };
+  }, []);
 
   // Sorting handler
-  const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
+  const handleSort = useCallback((key) => {
+    setSortConfig(prev => {
+      const direction = prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc';
+      return { key, direction };
+    });
+  }, []);
 
   // Filter & Sort data
   const processedData = useMemo(() => {
     let result = [...(data || [])];
 
     // Date range filter
-    if ((enableDateFilter || dateKey) && (startDate || endDate)) {
+    if (enableDateFilter && (startDate || endDate)) {
       result = result.filter(row => {
         const d = formatDateKey(row[dateKey]);
         if (!d) return true;
@@ -85,15 +102,29 @@ export default function DataTable({
       });
     }
 
+    // Keyword filter
+    if (enableKeywordFilter && keywordTerm) {
+      const lowerKw = keywordTerm.toLowerCase();
+      result = result.filter(row => {
+        const kw = (row[keywordKey] || row.search_keyword || row.keyword || row.product || row.category || '')?.toLowerCase();
+        const title = (row.title || '')?.toLowerCase();
+        return kw.includes(lowerKw) || title.includes(lowerKw);
+      });
+    }
+
     // Search filter
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
-      result = result.filter(row => 
-        columns.some(col => {
+      result = result.filter(row => {
+        const matchCol = columns.some(col => {
           const val = row[col.key];
           return val !== undefined && val !== null && String(val).toLowerCase().includes(lowerSearch);
-        })
-      );
+        });
+        const matchKw = (row[keywordKey] || row.search_keyword || row.keyword || row.product || row.category)
+          ? String(row[keywordKey] || row.search_keyword || row.keyword || row.product || row.category).toLowerCase().includes(lowerSearch)
+          : false;
+        return matchCol || matchKw;
+      });
     }
 
     // Sort
@@ -119,7 +150,7 @@ export default function DataTable({
     }
 
     return result;
-  }, [data, searchTerm, sortConfig, columns, enableDateFilter, dateKey, startDate, endDate]);
+  }, [data, searchTerm, keywordTerm, sortConfig, columns, enableDateFilter, dateKey, startDate, endDate, enableKeywordFilter, keywordKey]);
 
   // Pagination calculations
   const totalPages = Math.ceil(processedData.length / pageSize);
@@ -164,21 +195,28 @@ export default function DataTable({
                 padding: '2px 10px',
                 borderRadius: '99px'
               }}>
-                {badge || `${processedData.length} records`}
+                {badge 
+                  ? ((startDate || endDate || searchTerm || keywordTerm) ? `${processedData.length} filtered (${badge})` : badge) 
+                  : `${processedData.length} records`}
               </span>
             </div>
             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
               {subtitle}
               {(startDate || endDate) && (
                 <span style={{ color: '#0284c7', fontWeight: 600, marginLeft: '6px' }}>
-                  • Filtered: {startDate ? formatDateDDMMYYYY(startDate) : (allDates[0] ? formatDateDDMMYYYY(allDates[0]) : '')} to {endDate ? formatDateDDMMYYYY(endDate) : (allDates.length > 0 ? formatDateDDMMYYYY(allDates[allDates.length - 1]) : '')}
+                  • Date: {startDate ? formatDateDDMMYYYY(startDate) : (allDates[0] ? formatDateDDMMYYYY(allDates[0]) : '')} to {endDate ? formatDateDDMMYYYY(endDate) : (allDates.length > 0 ? formatDateDDMMYYYY(allDates[allDates.length - 1]) : '')}
+                </span>
+              )}
+              {keywordTerm && (
+                <span style={{ color: '#d97706', fontWeight: 600, marginLeft: '6px' }}>
+                  • Keyword: &quot;{keywordTerm}&quot;
                 </span>
               )}
             </div>
           </div>
 
           {/* Date Slicers */}
-          {enableDateFilter && allDates.length > 0 && (
+          {enableDateFilter && (
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#002f6c', fontWeight: 600, fontSize: '0.8rem' }}>
                 <Calendar size={15} />
@@ -211,7 +249,6 @@ export default function DataTable({
                       if (onDateChange) onDateChange('', endDate);
                     }}
                     title="Clear Start Date"
-                    style={{ width: '16px', height: '16px', marginLeft: '-22px' }}
                   >
                     <X size={10} />
                   </button>
@@ -246,7 +283,6 @@ export default function DataTable({
                       if (onDateChange) onDateChange(startDate, '');
                     }}
                     title="Clear End Date"
-                    style={{ width: '16px', height: '16px', marginLeft: '-22px' }}
                   >
                     <X size={10} />
                   </button>
@@ -286,8 +322,8 @@ export default function DataTable({
           )}
         </div>
       )}
-      <div className="table-header">
-        <div className="search-box">
+      <div className="table-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="search-box" style={{ flex: '1 1 240px', position: 'relative' }}>
           <input 
             type="text" 
             className="search-input" 
@@ -296,9 +332,88 @@ export default function DataTable({
             onChange={handleSearchChange}
           />
           <Search size={16} className="search-icon" />
+          {searchTerm && (
+            <button 
+              type="button" 
+              onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: '#e2e8f0',
+                border: 'none',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                color: '#64748b',
+                width: '18px',
+                height: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0
+              }}
+              title="Clear search"
+            >
+              <X size={10} />
+            </button>
+          )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+        {enableKeywordFilter && (
+          <div className="search-box" style={{ flex: '1 1 200px', position: 'relative' }}>
+            <input 
+              type="text" 
+              list={`dt-keywords-${title ? title.replace(/\s+/g, '-') : 'list'}`}
+              className="search-input" 
+              placeholder="Filter by keyword..." 
+              value={keywordTerm}
+              onChange={(e) => {
+                setKeywordTerm(e.target.value);
+                setCurrentPage(1);
+                if (onKeywordChange) onKeywordChange(e.target.value);
+              }}
+            />
+            <datalist id={`dt-keywords-${title ? title.replace(/\s+/g, '-') : 'list'}`}>
+              {allKeywords.map((kw, i) => (
+                <option key={i} value={kw} />
+              ))}
+            </datalist>
+            <Tag size={15} className="search-icon" style={{ color: '#0284c7' }} />
+            {keywordTerm && (
+              <button 
+                type="button" 
+                onClick={() => {
+                  setKeywordTerm('');
+                  setCurrentPage(1);
+                  if (onKeywordChange) onKeywordChange('');
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: '#e2e8f0',
+                  border: 'none',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  width: '18px',
+                  height: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0
+                }}
+                title="Clear keyword filter"
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: 'auto' }}>
           <span>Show:</span>
           <select 
             className="filter-control" 
@@ -384,3 +499,5 @@ export default function DataTable({
     </div>
   );
 }
+
+export default React.memo(DataTable);

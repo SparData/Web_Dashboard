@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Web Dashboard — Visualizations, Slicers & Code Manual</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 15mm 18mm 15mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background: #ffffff;
+    line-height: 1.6;
+    font-size: 10.5pt;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1 {
+    color: #0f172a;
+    font-size: 20pt;
+    font-weight: 800;
+    border-bottom: 2.5px solid #0284c7;
+    padding-bottom: 8px;
+    margin-top: 0;
+    margin-bottom: 14px;
+    page-break-after: avoid;
+  }
+
+  h2 {
+    color: #0369a1;
+    font-size: 14.5pt;
+    font-weight: 700;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 6px;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    color: #0f172a;
+    font-size: 12pt;
+    font-weight: 700;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+  }
+
+  h4 {
+    color: #334155;
+    font-size: 10.5pt;
+    font-weight: 600;
+    margin-top: 12px;
+    margin-bottom: 6px;
+    page-break-after: avoid;
+  }
+
+  p {
+    margin: 0 0 10px 0;
+  }
+
+  ul, ol {
+    margin: 0 0 12px 0;
+    padding-left: 22px;
+  }
+
+  li {
+    margin-bottom: 4px;
+  }
+
+  blockquote {
+    margin: 12px 0;
+    padding: 10px 14px;
+    background: #f0f9ff;
+    border-left: 4px solid #0284c7;
+    color: #0369a1;
+    font-size: 10pt;
+    border-radius: 0 6px 6px 0;
+    page-break-inside: avoid;
+  }
+
+  hr {
+    border: 0;
+    height: 1px;
+    background: #e2e8f0;
+    margin: 20px 0;
+  }
+
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    font-size: 9.5pt;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+
+  pre {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 12px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 9pt;
+    line-height: 1.45;
+    margin: 10px 0 14px 0;
+    page-break-inside: avoid;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    border: none;
+    font-size: inherit;
+  }
+
+  .table-container {
+    margin: 14px 0;
+    overflow-x: auto;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+
+  th, td {
+    padding: 6px 10px;
+    text-align: left;
+    border: 1px solid #cbd5e1;
+    vertical-align: top;
+  }
+
+  th {
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-weight: 700;
+    border-bottom: 2px solid #94a3b8;
+  }
+
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+
+  .math {
+    font-family: "Cambria Math", "Latin Modern Math", serif;
+    font-style: italic;
+    color: #0369a1;
+  }
+
+  a {
+    color: #0284c7;
+    text-decoration: none;
+  }
+
+  @media print {
+    body {
+      background: #ffffff;
+      color: #000000;
+    }
+    pre {
+      background: #1e293b;
+      color: #ffffff;
+    }
+    th {
+      background-color: #f1f5f9 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    blockquote {
+      background-color: #f0f9ff !important;
+      border-left-color: #0284c7 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+<h1 id="web-dashboard--complete-visualizations-slicers-filters--code-maintenance-manual">Web Dashboard — Complete Visualizations, Slicers, Filters &amp; Code Maintenance Manual</h1>
+<blockquote><strong>Document Classification:</strong> Master Technical Reference &amp; Future Developer Guide<br><strong>Applicable Codebase:</strong> <code>d:\Web Dashboard</code><br><strong>Platform:</strong> Quick Commerce &amp; FMCG Digital Shelf Analytics (Blinkit &amp; Zepto)<br><strong>Date of Generation:</strong> November 2026</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<p>1. <a href="#1-architecture-overview--component-registry">Architecture Overview &amp; Component Registry</a></p>
+<p>2. <a href="#2-complete-catalog-of-graphs--visualizations">Complete Catalog of Graphs &amp; Visualizations (15 Charts)</a></p>
+<ul>
+<li>2.1 <a href="#21-share-of-search-by-top-10-brands">Share of Search by Top 10 Brands</a></li>
+<li>2.2 <a href="#22-availability-rate-by-category">Availability Rate by Category</a></li>
+<li>2.3 <a href="#23-retailer-share-of-voice-catalog-size">Retailer Share of Voice (Catalog Size)</a></li>
+<li>2.4 <a href="#24-average-price-by-category">Average Price by Category</a></li>
+<li>2.5 <a href="#25-brand-search-rank-matrix-scatter-bubble">Brand Search Rank Matrix (Scatter Bubble)</a></li>
+<li>2.6 <a href="#26-discount-distribution-by-category">Discount Distribution by Category</a></li>
+<li>2.7 <a href="#27-position-of-banner-ads">Position of Banner Ads</a></li>
+<li>2.8 <a href="#28-brand-search-rank-trend-chart-multi-line-inverted">Brand Search Rank Trend Chart (Multi-Line Inverted)</a></li>
+<li>2.9 <a href="#29-availability--by-retailer-across-cities">Availability % by Retailer Across Cities</a></li>
+<li>2.10 <a href="#210-retailer-presence-across-cities-stacked-bar">Retailer Presence Across Cities (Stacked Bar)</a></li>
+<li>2.11 <a href="#211-banner-share-of-voice-by-brand">Banner Share of Voice by Brand</a></li>
+<li>2.12 <a href="#212-banner-ad-types-distribution">Banner Ad Types Distribution</a></li>
+<li>2.13 <a href="#213-banner-ads-over-time-area-timeline">Banner Ads Over Time (Area Timeline)</a></li>
+<li>2.14 <a href="#214-availability-trends-date-wise-area-line">Availability Trends Date-wise (Area Line)</a></li>
+<li>2.15 <a href="#215-standalone-sku-availability-trend-chart">Standalone SKU Availability Trend Chart</a></li>
+</ul>
+<p>3. <a href="#3-complete-guide-to-all-slicers--filters">Complete Guide to All Slicers &amp; Filters</a></p>
+<ul>
+<li>3.1 <a href="#31-global-filters-bar-filtersjsx">Global Filters Bar (<code>Filters.jsx</code>)</a></li>
+<li>3.2 <a href="#32-sku-availability-table-filters-skuavailabilitytablejsx">SKU Availability Table Filters (<code>SkuAvailabilityTable.jsx</code>)</a></li>
+<li>3.3 <a href="#33-brand-search-rank-table-slicers-brandsearchranktablejsx">Brand Search Rank Table Slicers (<code>BrandSearchRankTable.jsx</code>)</a></li>
+<li>3.4 <a href="#34-brand-availability-table-slicers-brandavailabilitytablejsx">Brand Availability Table Slicers (<code>BrandAvailabilityTable.jsx</code>)</a></li>
+<li>3.5 <a href="#35-auto-refresh--polling-interval-slicer-refreshcontroljsx">Auto-Refresh &amp; Polling Interval Slicer (<code>RefreshControl.jsx</code>)</a></li>
+<li>3.6 <a href="#36-directory-data-table-slicers-datatablejsx">Directory Data Table Slicers (<code>DataTable.jsx</code>)</a></li>
+</ul>
+<p>4. <a href="#4-kpi-cards--metrics-grid-metricsgridjsx">KPI Cards &amp; Metrics Grid (<code>MetricsGrid.jsx</code>)</a></p>
+<p>5. <a href="#5-data-tables-architecture--badge-logic">Data Tables Architecture &amp; Badge Logic</a></p>
+<p>6. <a href="#6-developer-change-recipes-future-modifications-cookbook">Developer Change Recipes (Future Modifications Cookbook)</a></p>
+<hr />
+<h2 id="1-architecture-overview--component-registry">1. Architecture Overview &amp; Component Registry</h2>
+<p>The dashboard is structured into 3 primary view tabs accessible via the left navigation drawer:</p>
+<p>1. <strong>Overall Insights (<code>src/pages/DashboardOverview.jsx</code>):</strong> High-level KPIs, category market distributions, pricing, discount analyses, search rank matrix, and banner placement breakdown.</p>
+<p>2. <strong>Availability (<code>src/pages/AvailabilityAnalysis.jsx</code>):</strong> In-depth availability benchmarking between Blinkit and Zepto, city-level presence, and detailed banner advertising share-of-voice.</p>
+<p>3. <strong>SKU Specific Data (<code>src/pages/ProductInsights.jsx</code>):</strong> The flagship store-level availability worksheet (<code>SkuAvailabilityTable.jsx</code>) mirroring FMCG field audit Excel sheets across dark stores.</p>
+<h3 id="component-map">Component Map</h3>
+<div class="table-container"><table>
+<thead><tr>
+<th>Component Name</th>
+<th>File Path</th>
+<th>Role &amp; Visual Elements Hosted</th>
+</tr></thead><tbody>
+<tr>
+<td><strong><code>DashboardOverview</code></strong></td>
+<td><code>src/pages/DashboardOverview.jsx</code></td>
+<td>7 ECharts, Top Metrics Grid, BrandSearchRankTable, Banner DataTable</td>
+</tr>
+<tr>
+<td><strong><code>AvailabilityAnalysis</code></strong></td>
+<td><code>src/pages/AvailabilityAnalysis.jsx</code></td>
+<td>6 ECharts, MetricsGrid, BrandAvailabilityTable</td>
+</tr>
+<tr>
+<td><strong><code>ProductInsights</code></strong></td>
+<td><code>src/pages/ProductInsights.jsx</code></td>
+<td>Container for SkuAvailabilityTable</td>
+</tr>
+<tr>
+<td><strong><code>SkuAvailabilityTable</code></strong></td>
+<td><code>src/components/SkuAvailabilityTable.jsx</code></td>
+<td>Flagship Excel-mirror worksheet (Cascading Category/Brand filters, Total Avail column)</td>
+</tr>
+<tr>
+<td><strong><code>SkuAvailabilityChart</code></strong></td>
+<td><code>src/components/SkuAvailabilityChart.jsx</code></td>
+<td>Standalone bar/line visualizer for SKU availability</td>
+</tr>
+<tr>
+<td><strong><code>BrandSearchRankTable</code></strong></td>
+<td><code>src/components/BrandSearchRankTable.jsx</code></td>
+<td>Matrix of daily search ranks + Multi-line trend chart</td>
+</tr>
+<tr>
+<td><strong><code>BrandAvailabilityTable</code></strong></td>
+<td><code>src/components/BrandAvailabilityTable.jsx</code></td>
+<td>Matrix of daily availability % + &#x27;No Product Found&#x27; badges</td>
+</tr>
+<tr>
+<td><strong><code>Filters</code></strong></td>
+<td><code>src/components/Filters.jsx</code></td>
+<td>Global faceted 6-filter bar</td>
+</tr>
+<tr>
+<td><strong><code>MetricsGrid</code></strong></td>
+<td><code>src/components/MetricsGrid.jsx</code></td>
+<td>7 KPI summary cards</td>
+</tr>
+<tr>
+<td><strong><code>RefreshControl</code></strong></td>
+<td><code>src/components/RefreshControl.jsx</code></td>
+<td>5-tier polling interval dropdown, countdown, manual trigger</td>
+</tr>
+<tr>
+<td><strong><code>ChartContainer</code></strong></td>
+<td><code>src/components/ChartContainer.jsx</code></td>
+<td>Generic responsive wrapper initializing Apache ECharts instances</td>
+</tr>
+<tr>
+<td><strong><code>DataTable</code></strong></td>
+<td><code>src/components/DataTable.jsx</code></td>
+<td>Generic paginated table with column sorting and search</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="2-complete-catalog-of-graphs--visualizations">2. Complete Catalog of Graphs &amp; Visualizations</h2>
+<p>Every graph in this application is powered by <strong>Apache ECharts</strong> through the reusable <code>&lt;ChartContainer options={...} /&gt;</code> component. Below is the comprehensive breakdown of each graph:</p>
+<h3 id="21-share-of-search-by-top-10-brands">2.1. Share of Search by Top 10 Brands</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/DashboardOverview.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>shareOfSearchOption</code> (Lines 23–120)</li>
+<li><strong>Chart Type:</strong> Horizontal Bar Chart (<code>type: &#x27;bar&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> The percentage share of distinct SKUs that each top brand owns within the search results. Brands with more listed products command higher digital shelf space.</li>
+<li><strong>Data Source &amp; Calculation:</strong></li>
+<li>Inputs: <code>productListings</code> array.</li>
+<li>For each product <code>p</code>, records <code>p.brand</code> and counts distinct SKU titles into a <code>Set</code>.</li>
+<li>Formula: <span class="math">\text{Share} = \frac{\text{Brand Distinct SKUs}}{\sum \text{Total Distinct SKUs}} \times 100</span>.</li>
+<li>Filter: Excludes generic placeholders (<code>&#x27;others&#x27;</code>, <code>&#x27;unknown&#x27;</code>, <code>&#x27;n/a&#x27;</code>).</li>
+<li>Limits to Top 10 using <code>.slice(0, 10)</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Change Number of Brands:</em> Modify <code>.slice(0, 10)</code> on line 51 to <code>.slice(0, 15)</code> or <code>.slice(0, 5)</code>.</li>
+<li><em>Change Bar Colors:</em> Adjust <code>color: &#x27;#002f6c&#x27;</code> on line 105 to any HEX or linear gradient.</li>
+<li><em>Toggle Percentage vs Count:</em> Change <code>p.percentage</code> on line 48 to <code>p.skuCount</code>.</li>
+</ul>
+<h3 id="22-availability-rate-by-category">2.2. Availability Rate by Category</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/DashboardOverview.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>availabilityByCategoryOption</code> (Lines 125–240)</li>
+<li><strong>Chart Type:</strong> Horizontal Bar Chart with Benchmark MarkLine (<code>type: &#x27;bar&#x27;</code>, <code>markLine</code>)</li>
+<li><strong>What It Represents:</strong> Compares the in-stock percentage of each product category against the overall catalog benchmark.</li>
+<li><strong>Data Source &amp; Calculation:</strong></li>
+<li>Groups <code>productListings</code> by <code>category</code>.</li>
+<li>Counts items where <code>availability === true</code> or <code>&#x27;yes&#x27;</code> versus total items per category.</li>
+<li>Calculates category availability percentage and draws a dashed vertical red benchmark line indicating overall average.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Adjust Benchmark Line:</em> Modify <code>markLine.data[0].xAxis</code> on line 210.</li>
+<li><em>Change Threshold Colors:</em> Color logic is controlled around line 185: green for <span class="math">\ge 95\%</span>, blue for <span class="math">\ge 90\%</span>, red for <span class="math">&lt; 90\%</span>.</li>
+</ul>
+<h3 id="23-retailer-share-of-voice-catalog-size">2.3. Retailer Share of Voice (Catalog Size)</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/DashboardOverview.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>retailerShareOption</code> (Lines 245–340)</li>
+<li><strong>Chart Type:</strong> Donut / Ring Chart (<code>type: &#x27;pie&#x27;</code>, <code>radius: [&#x27;45%&#x27;, &#x27;70%&#x27;]</code>)</li>
+<li><strong>What It Represents:</strong> Relative catalog volume and listing distribution between <strong>Blinkit</strong> and <strong>Zepto</strong>.</li>
+<li><strong>Data Source:</strong> Counts occurrences of each <code>p.source_chain</code> in <code>productListings</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Make Solid Pie instead of Donut:</em> Change <code>radius: [&#x27;45%&#x27;, &#x27;70%&#x27;]</code> on line 315 to <code>radius: &#x27;65%&#x27;</code>.</li>
+<li><em>Change Brand Colors:</em> Adjust <code>color: [&#x27;#f59e0b&#x27;, &#x27;#8b5cf6&#x27;]</code> (Amber for Blinkit, Purple for Zepto).</li>
+</ul>
+<h3 id="24-average-price-by-category">2.4. Average Price by Category</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/DashboardOverview.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>priceByCategoryOption</code> (Lines 345–440)</li>
+<li><strong>Chart Type:</strong> Vertical Bar Chart (<code>type: &#x27;bar&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> The average listed selling price in Indian Rupees (₹) across product categories.</li>
+<li><strong>Data Source:</strong> <code>AVG(p.price)</code> grouped by <code>p.category</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Add Median or Min/Max:</em> Add secondary series to the <code>series</code> array on line 420.</li>
+<li><em>Currency Formatting:</em> Update <code>formatter: &#x27;₹{value}&#x27;</code> in <code>axisLabel</code> on line 395.</li>
+</ul>
+<h3 id="25-brand-search-rank-matrix-scatter-bubble">2.5. Brand Search Rank Matrix (Scatter Bubble)</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/DashboardOverview.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>searchRankScatterOption</code> (Lines 445–560)</li>
+<li><strong>Chart Type:</strong> Multi-dimensional Scatter Chart (<code>type: &#x27;scatter&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> Evaluates competitive positioning by plotting Price (X-axis) against Search Rank (Y-axis, inverted so Rank #1 is at top), with bubble size reflecting product rating.</li>
+<li><strong>Data Source:</strong> <code>[p.price, p.rank_num, p.rating_of_5, p.title, p.brand]</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Invert or Un-invert Axis:</em> <code>inverse: true</code> on line 510 controls whether Rank #1 is at the top.</li>
+<li><em>Bubble Size Ratio:</em> Modify <code>symbolSize: (data) =&gt; Math.pow(data[2], 1.8) * 3</code> on line 535.</li>
+</ul>
+<h3 id="26-discount-distribution-by-category">2.6. Discount Distribution by Category</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/DashboardOverview.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>discountOption</code> (Lines 565–660)</li>
+<li><strong>Chart Type:</strong> Bar Chart (<code>type: &#x27;bar&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> Average percentage discount off MRP offered by dark stores across categories.</li>
+<li><strong>Data Source:</strong> <code>p.discount</code> or <code>((p.original_price - p.price) / p.original_price) * 100</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Switch from Category to Retailer:</em> Change grouping key from <code>p.category</code> to <code>p.source_chain</code> on line 580.</li>
+</ul>
+<h3 id="27-position-of-banner-ads">2.7. Position of Banner Ads</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/DashboardOverview.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>positionChartOption</code> (Lines 665–760)</li>
+<li><strong>Chart Type:</strong> Donut Chart (<code>type: &#x27;pie&#x27;</code>, <code>radius: [&#x27;42%&#x27;, &#x27;68%&#x27;]</code>)</li>
+<li><strong>What It Represents:</strong> The count of sponsored banner placements grouped by screen location (e.g. <code>Top</code>, <code>Middle</code>, <code>Bottom</code>, <code>Left Sidebar</code>).</li>
+<li><strong>Data Source:</strong> <code>bannerAds</code> array, grouping by <code>b.banner_position</code>`.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Change to Bar Chart:</em> Change <code>type: &#x27;pie&#x27;</code> to <code>type: &#x27;bar&#x27;</code> and add an <code>xAxis</code> with position names.</li>
+</ul>
+<h3 id="28-brand-search-rank-trend-chart-multi-line-inverted">2.8. Brand Search Rank Trend Chart (Multi-Line Inverted)</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/components/BrandSearchRankTable.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>trendChartOption</code> (Lines 262–320)</li>
+<li><strong>Chart Type:</strong> Multi-Series Spline Line Chart (<code>type: &#x27;line&#x27;</code>, <code>smooth: true</code>, <code>yAxis.inverse: true</code>)</li>
+<li><strong>What It Represents:</strong> Historical day-by-day rank movement for the top 8 brands across the sliced date range. Rank #1 is at the top of the chart.</li>
+<li><strong>Data Source:</strong> Aggregated <code>brandMap</code> daily rank values (<code>cell.best</code> or <code>cell.avg</code>).</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Change Top N Brands:</em> Line 265: <code>const topBrands = processedRows.slice(0, 8);</code> Change <code>8</code> to <code>5</code> or <code>12</code>.</li>
+<li><em>Switch Straight Lines vs Curved:</em> Toggle <code>smooth: true</code> to <code>smooth: false</code> on line 290.</li>
+<li><em>Cap Y-Axis Range:</em> Set <code>yAxis.max = 20</code> or <code>yAxis.max = 50</code> on line 282.</li>
+</ul>
+<h3 id="29-availability--by-retailer-across-cities">2.9. Availability % by Retailer Across Cities</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/AvailabilityAnalysis.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>availabilityByRetailerOption</code> (Lines 36–120)</li>
+<li><strong>Chart Type:</strong> Clustered Bar Chart (<code>type: &#x27;bar&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> Side-by-side in-stock percentage comparison between Blinkit and Zepto across major Indian cities.</li>
+<li><strong>Data Source:</strong> <code>productListings</code> grouped by <code>source_chain</code> and <code>city</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Filter Specific Cities:</em> Modify <code>selectedCities</code> array around line 60.</li>
+</ul>
+<h3 id="210-retailer-presence-across-cities-stacked-bar">2.10. Retailer Presence Across Cities (Stacked Bar)</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/AvailabilityAnalysis.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>retailerCityPresenceOption</code> (Lines 125–220)</li>
+<li><strong>Chart Type:</strong> Stacked Horizontal Bar Chart (<code>type: &#x27;bar&#x27;</code>, <code>stack: &#x27;total&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> Total SKU density of each retailer across individual cities, illustrating geographic footprints.</li>
+<li><strong>Data Source:</strong> <code>productListings</code> count per <code>(city, source_chain)</code> pair.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Unstack Bars:</em> Remove <code>stack: &#x27;total&#x27;</code> on line 195 to display side-by-side grouped bars.</li>
+</ul>
+<h3 id="211-banner-share-of-voice-by-brand">2.11. Banner Share of Voice by Brand</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/AvailabilityAnalysis.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>bannerBrandShareOption</code> (Lines 225–310)</li>
+<li><strong>Chart Type:</strong> Donut Chart (<code>type: &#x27;pie&#x27;</code>, <code>roseType: &#x27;radius&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> Proportional ad spend presence: which brands are buying the most sponsored banners across apps.</li>
+<li><strong>Data Source:</strong> <code>bannerAds</code> grouped by <code>b.brand</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Toggle Nightingale Rose View:</em> Remove <code>roseType: &#x27;radius&#x27;</code> on line 285 for a standard uniform donut.</li>
+</ul>
+<h3 id="212-banner-ad-types-distribution">2.12. Banner Ad Types Distribution</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/AvailabilityAnalysis.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>bannerAdTypeOption</code> (Lines 315–400)</li>
+<li><strong>Chart Type:</strong> Pie Chart (<code>type: &#x27;pie&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> Breakdown of creative formats: Video Banners vs Static Image Banners vs Carousel Placements.</li>
+<li><strong>Data Source:</strong> <code>bannerAds</code> grouped by <code>b.ad_type</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Custom Colors per Format:</em> Line 360: Map <code>&#x27;Video Banner&#x27;</code> to Magenta and <code>&#x27;Static Banner&#x27;</code> to Blue.</li>
+</ul>
+<h3 id="213-banner-ads-over-time-area-timeline">2.13. Banner Ads Over Time (Area Timeline)</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/AvailabilityAnalysis.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>bannerTimelineOption</code> (Lines 405–490)</li>
+<li><strong>Chart Type:</strong> Area Line Chart (<code>type: &#x27;line&#x27;</code>, <code>areaStyle: { opacity: 0.25 }</code>)</li>
+<li><strong>What It Represents:</strong> Daily trend of live sponsored campaigns, highlighting marketing spikes (e.g., weekend promotions or festival sales).</li>
+<li><strong>Data Source:</strong> <code>bannerAds</code> grouped by <code>scrape_date</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Change Fill Gradient:</em> Modify <code>areaStyle.color</code> on line 465.</li>
+</ul>
+<h3 id="214-availability-trends-date-wise-area-line">2.14. Availability Trends Date-wise (Area Line)</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/pages/AvailabilityAnalysis.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>availabilityTrendsOption</code> (Lines 495–565)</li>
+<li><strong>Chart Type:</strong> Smooth Line Chart with Gradient Fill (<code>type: &#x27;line&#x27;</code>, <code>smooth: true</code>)</li>
+<li><strong>What It Represents:</strong> The overall catalog availability curve day-by-day.</li>
+<li><strong>Data Source:</strong> Daily average in-stock % calculated across all products in <code>productListings</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Adjust Y-Axis Min/Max:</em> Change <code>min: 80</code> or <code>min: &#x27;dataMin&#x27;</code> on line 535 to zoom in on micro-dips.</li>
+</ul>
+<h3 id="215-standalone-sku-availability-trend-chart">2.15. Standalone SKU Availability Trend Chart</h3>
+<ul>
+<li><strong>Rendered In:</strong> <code>src/components/SkuAvailabilityChart.jsx</code></li>
+<li><strong>Code Variable:</strong> <code>chartOption</code> (Lines 79–175)</li>
+<li><strong>Chart Type:</strong> Horizontal Bar Chart (<code>type: &#x27;bar&#x27;</code>)</li>
+<li><strong>What It Represents:</strong> Top 20 SKUs ranked by overall availability percentage for any selected Category and Brand.</li>
+<li><strong>Data Source:</strong> <code>rawData.skus</code> filtered by <code>selectedCategory</code> and <code>selectedBrand</code>.</li>
+<li><strong>Where Future Code Changes Can Be Made:</strong></li>
+<li><em>Adjust Limit:</em> Line 92: <code>matchingSkus.slice(0, 20)</code> can be modified to 10, 30, or 50.</li>
+</ul>
+<hr />
+<h2 id="3-complete-guide-to-all-slicers--filters">3. Complete Guide to All Slicers &amp; Filters</h2>
+<p>The application incorporates 6 distinct filtering and slicing modules across different pages:</p>
+<h3 id="31-global-filters-bar-filtersjsx">3.1. Global Filters Bar (<code>Filters.jsx</code>)</h3>
+<ul>
+<li><strong>Host File:</strong> <code>src/components/Filters.jsx</code> (Imported and rendered globally in <code>src/App.jsx</code>).</li>
+<li><strong>Connected State:</strong> <code>filters</code> object in <code>src/App.jsx</code>:</li>
+</ul>
+<p>```js</p>
+<p>filters = {</p>
+<p>start_date: &#x27;&#x27;,       // e.g. &#x27;2026-07-28&#x27;</p>
+<p>end_date: &#x27;&#x27;,         // e.g. &#x27;2026-08-14&#x27;</p>
+<p>city_pincode: &#x27;all&#x27;,  // e.g. &#x27;Delhi|110001&#x27; or &#x27;Mumbai|all&#x27;</p>
+<p>brand: &#x27;all&#x27;,         // e.g. &#x27;Fortune&#x27;, &#x27;Sunfeast&#x27;</p>
+<p>category: &#x27;all&#x27;,      // e.g. &#x27;Atta&#x27;, &#x27;Biscuits&#x27;</p>
+<p>source_chain: &#x27;all&#x27;,  // e.g. &#x27;Blinkit&#x27;, &#x27;Zepto&#x27;</p>
+<p>product: &#x27;all&#x27;        // e.g. &#x27;Cookies&#x27;, &#x27;Whole Wheat Atta&#x27;</p>
+<p>}</p>
+<p>```</p>
+<ul>
+<li><strong>Individual Slicers Explained:</strong></li>
+</ul>
+<p>1. <strong>Start Date &amp; End Date Pickers:</strong> HTML5 <code>&lt;input type=&quot;date&quot;&gt;</code> controls with interactive clear buttons (<code>X</code>). Constrained dynamically between <code>minAvailableDate</code> and <code>maxAvailableDate</code>.</p>
+<p>2. <strong>City, Pincode Dropdown:</strong> Hierarchical grouped selector. Formatted as <code>City|Pincode</code> (e.g. <code>Delhi|110001</code>) or <code>City|all</code> (e.g. <code>Delhi (All Pincodes)</code>).</p>
+<p>3. <strong>Brand Dropdown:</strong> Populates distinct brands. If an enterprise user has a brand restriction (<code>user.brandLimit</code>), the dropdown locks strictly to their brand.</p>
+<p>4. <strong>Category Dropdown:</strong> Lists high-level FMCG groups (<code>Atta</code>, <code>Biscuits</code>, <code>Edible Oil</code>, <code>Noodles</code>, etc.).</p>
+<p>5. <strong>Chain (Retailer) Dropdown:</strong> Options: <code>All Chains</code>, <code>Blinkit</code>, <code>Zepto</code>.</p>
+<p>6. <strong>Search Keyword Dropdown:</strong> Filters by the exact user search string entered on quick-commerce apps.</p>
+<p>7. <strong>Clear Filters Button:</strong> Resets all 7 dimensions back to initial defaults in one click.</p>
+<ul>
+<li><strong>How Options Are Extracted:</strong></li>
+<li>In <code>src/App.jsx</code>, <code>availableOptions</code> uses a single-pass <code>useMemo</code> algorithm over <code>productListings</code> to dynamically compute valid options based on current selections.</li>
+<li><strong>How to Add a New Global Filter:</strong></li>
+</ul>
+<p>1. Add the new key to <code>filters</code> state in <code>src/App.jsx</code> (e.g. <code>pack_size: &#x27;all&#x27;</code>).</p>
+<p>2. In <code>availableOptions</code> <code>useMemo</code>, add a collection set for <code>pack_size</code>.</p>
+<p>3. In <code>src/components/Filters.jsx</code>, add a <code>&lt;div className=&quot;filter-group&quot;&gt;</code> with a <code>&lt;select&gt;</code> bound to <code>filters.pack_size</code>.</p>
+<h3 id="32-sku-availability-table-filters-skuavailabilitytablejsx">3.2. SKU Availability Table Filters (<code>SkuAvailabilityTable.jsx</code>)</h3>
+<ul>
+<li><strong>Host File:</strong> <code>src/components/SkuAvailabilityTable.jsx</code> (on the SKU Specific Data page).</li>
+<li><strong>Connected States:</strong></li>
+<li><code>selectedCategory</code>: Default <code>&#x27;Atta&#x27;</code>. Options: <code>Atta</code>, <code>Biscuits</code>, <code>Edible Oil</code>, <code>Noodles</code>.</li>
+<li><code>selectedBrand</code>: Default <code>&#x27;All&#x27;</code>. Options: <code>&#x27;All&#x27;</code> + category-specific brands.</li>
+<li><code>selectedChain</code>: Default <code>&#x27;all&#x27;</code>. Options: <code>&#x27;all&#x27;</code>, <code>&#x27;Blinkit&#x27;</code>, <code>&#x27;Zepto&#x27;</code>.</li>
+<li><code>searchQuery</code>: String input for live SKU name / City / Pincode text search.</li>
+<li><code>pageSize</code>: Number of rows per page (15, 25, 50, 100).</li>
+<li><strong>Special Business Rules Implemented:</strong></li>
+<li><strong>The <code>&#x27;All&#x27;</code> Brand Option:</strong> Always placed at index 0 of the brand dropdown. When selected, it merges and displays all sheets in that category simultaneously.</li>
+<li><strong>Automatic Brand Reset on Category Switch:</strong> When a user clicks a new Category pill (e.g., switches from <em>Atta</em> to <em>Biscuits</em>), <code>handleCategoryChange</code> automatically selects <code>&#x27;All&#x27;</code> and resets the page to 1.</li>
+<li><strong>Fast Multi-Column Search:</strong> Evaluates lowercase text against SKU title, city name, and 6-digit postal code simultaneously.</li>
+<li><strong>How to Modify or Add Categories:</strong></li>
+<li>Open <code>src/skuAvailabilityData.json</code> and add the category to <code>&quot;categories&quot;</code> and its brands to <code>&quot;hierarchy&quot;</code>.</li>
+</ul>
+<h3 id="33-brand-search-rank-table-slicers-brandsearchranktablejsx">3.3. Brand Search Rank Table Slicers (<code>BrandSearchRankTable.jsx</code>)</h3>
+<ul>
+<li><strong>Host File:</strong> <code>src/components/BrandSearchRankTable.jsx</code>.</li>
+<li><strong>Slicers Hosted:</strong></li>
+</ul>
+<p>1. <strong>Date Slicers (Start &amp; End Date):</strong> Slices date columns displayed in the table.</p>
+<p>2. <strong>Preset Date Quick-Buttons:</strong></p>
+<ul>
+<li><code>All Dates (14)</code>: Clears custom range and activates full history.</li>
+<li><code>Last 3 Days</code>: Automatically calculates <code>allDates.slice(-3)</code>.</li>
+<li><code>Last 5 Days</code>: Calculates <code>allDates.slice(-5)</code>.</li>
+<li><code>Last 7 Days</code>: Calculates <code>allDates.slice(-7)</code>.</li>
+</ul>
+<p>3. <strong>Metric Mode Toggle (<code>metricMode</code>):</strong></p>
+<ul>
+<li><code>Best Rank</code>: Displays the minimum (best) organic rank achieved by the brand on that day (e.g. Rank 1).</li>
+<li><code>Avg Rank</code>: Displays the average rank across all products of that brand on that day.</li>
+</ul>
+<p>4. <strong>View Mode Toggle (<code>viewMode</code>):</strong></p>
+<ul>
+<li><code>Table</code>: Displays the matrix grid only.</li>
+<li><code>Chart</code>: Displays the multi-line trend chart only.</li>
+<li><code>Both</code>: Displays both stacked vertically.</li>
+</ul>
+<p>5. <strong>Brand Live Search:</strong> Filters table rows instantly by brand name.</p>
+<h3 id="34-brand-availability-table-slicers-brandavailabilitytablejsx">3.4. Brand Availability Table Slicers (<code>BrandAvailabilityTable.jsx</code>)</h3>
+<ul>
+<li><strong>Host File:</strong> <code>src/components/BrandAvailabilityTable.jsx</code>.</li>
+<li><strong>Slicers Hosted:</strong></li>
+<li>Date Range Slicers (<code>startDate</code>, <code>endDate</code>).</li>
+<li>Date Quick Presets (<code>All Dates</code>, <code>Last 3 Days</code>, <code>Last 5 Days</code>, <code>Last 7 Days</code>).</li>
+<li>Brand Live Search Input (<code>searchTerm</code>).</li>
+<li>Rows Per Page Selector (10, 25, 50, 100, All).</li>
+<li><strong>Special Display Rule (<code>No Product Found</code> Badge):</strong></li>
+<li>When a brand had <strong>0 listings scraped</strong> on a particular date, <code>renderRateBadge</code> renders a clean badge labeled <strong><code>No Product Found</code></strong> with a tooltip explaining that no products were scraped, rather than showing <code>0%</code> or <code>-</code>.</li>
+</ul>
+<h3 id="35-auto-refresh--polling-interval-slicer-refreshcontroljsx">3.5. Auto-Refresh &amp; Polling Interval Slicer (<code>RefreshControl.jsx</code>)</h3>
+<ul>
+<li><strong>Host File:</strong> <code>src/components/RefreshControl.jsx</code> (rendered in <code>top-header</code>).</li>
+<li><strong>Interval Options Configured (<code>REFRESH_OPTIONS</code>):</strong></li>
+<li><code>0</code>: Off (Manual sync only)</li>
+<li><code>10</code>: 10 seconds (High frequency live monitoring)</li>
+<li><code>30</code>: 30 seconds (Default balanced setting)</li>
+<li><code>60</code>: 1 minute (Standard update)</li>
+<li><code>300</code>: 5 minutes (Low network usage)</li>
+<li><strong>Features:</strong></li>
+<li>Live countdown pill: Shows real-time countdown seconds remaining until next fetch.</li>
+<li>Background Tab Pause: When user minimizes the browser or switches tabs, polling automatically pauses to conserve network bandwidth.</li>
+<li>Instant Sync on Return: When user tabs back to the dashboard, it immediately refreshes data.</li>
+<li>Manual Refresh Button: Triggers immediate cache-busted fetch (<code>?refresh=true</code>).</li>
+<li>Relative Time Tracker: Shows dynamic timestamps like <code>&quot;Just now&quot;</code>, <code>&quot;45s ago&quot;</code>, <code>&quot;2m ago&quot;</code>.</li>
+</ul>
+<h3 id="36-directory-data-table-slicers-datatablejsx">3.6. Directory Data Table Slicers (<code>DataTable.jsx</code>)</h3>
+<ul>
+<li><strong>Host File:</strong> <code>src/components/DataTable.jsx</code> (Used for Banner Ads log on DashboardOverview).</li>
+<li><strong>Slicers Hosted:</strong></li>
+<li>Date range filters (<code>enableDateFilter=true</code>).</li>
+<li>Keyword dropdown filter (<code>enableKeywordFilter=true</code>).</li>
+<li>Real-time search across all columns.</li>
+<li>Dynamic rows per page (10, 25, 50, 100).</li>
+</ul>
+<hr />
+<h2 id="4-kpi-cards--metrics-grid-metricsgridjsx">4. KPI Cards &amp; Metrics Grid (<code>MetricsGrid.jsx</code>)</h2>
+<p>Located at <code>src/components/MetricsGrid.jsx</code>. Displays 7 executive metric cards. Each card is interactive and clickable (<code>onKpiClick</code>), auto-navigating to the underlying detailed view:</p>
+<div class="table-container"><table>
+<thead><tr>
+<th>KPI Key</th>
+<th>Label</th>
+<th>Formula / Source</th>
+<th>Normal / Target Range</th>
+<th>Alert Trigger</th>
+<th>Click Destination</th>
+</tr></thead><tbody>
+<tr>
+<td><code>distinctProducts</code></td>
+<td>Total Products</td>
+<td>Count of unique SKU titles</td>
+<td>N/A</td>
+<td>None</td>
+<td>SKU Specific Data</td>
+</tr>
+<tr>
+<td><code>totalBrands</code></td>
+<td>Total Brands</td>
+<td>Count of distinct brands</td>
+<td>N/A</td>
+<td>None</td>
+<td>SKU Specific Data</td>
+</tr>
+<tr>
+<td><code>avgPrice</code></td>
+<td>Avg Product Price</td>
+<td><code>AVG(price)</code></td>
+<td>₹100 – ₹500</td>
+<td>None</td>
+<td>SKU Specific Data</td>
+</tr>
+<tr>
+<td><code>avgRating</code></td>
+<td>Average Rating</td>
+<td><code>AVG(rating_of_5)</code></td>
+<td>4.0 – 5.0 ★</td>
+<td><code>&lt; 4.0 ★</code></td>
+<td>SKU Specific Data</td>
+</tr>
+<tr>
+<td><code>availabilityRate</code></td>
+<td>Active Product %</td>
+<td><code>(InStock / Total) * 100</code></td>
+<td><span class="math">\ge 95\%</span></td>
+<td><code>&lt; 90\%</code> (Turns Red)</td>
+<td>SKU Specific Data</td>
+</tr>
+<tr>
+<td><code>avgDiscount</code></td>
+<td>Avg Discount</td>
+<td><code>AVG(discount %)</code></td>
+<td>5% – 25%</td>
+<td>None</td>
+<td>SKU Specific Data</td>
+</tr>
+<tr>
+<td><code>outOfStockRate</code></td>
+<td>Out of Stock %</td>
+<td><code>100 - ActiveProduct%</code></td>
+<td><span class="math">\le 5\%</span></td>
+<td><code>&gt; 10\%</code> (Turns Red)</td>
+<td>SKU Specific Data</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="how-to-add-a-new-kpi-card">How to Add a New KPI Card:</h3>
+<p>1. In <code>src/App.jsx</code> under <code>stats</code> <code>useMemo</code> (lines 480–525), compute your metric value.</p>
+<p>2. Open <code>src/components/MetricsGrid.jsx</code> and add an object to the <code>cards</code> array:</p>
+<p>```jsx</p>
+<p>{</p>
+<p>key: &#x27;myMetric&#x27;,</p>
+<p>label: &#x27;My New Metric&#x27;,</p>
+<p>value: stats.myMetric.value,</p>
+<p>unit: &#x27;%&#x27;,</p>
+<p>className: &#x27;green&#x27;,</p>
+<p>icon: &lt;TrendingUp size={18} style={{ color: &#x27;var(--success)&#x27; }} /&gt;</p>
+<p>}</p>
+<p>```</p>
+<hr />
+<h2 id="5-data-tables-architecture--badge-logic">5. Data Tables Architecture &amp; Badge Logic</h2>
+<h3 id="51-skuavailabilitytablejsx-core-store-worksheet">5.1. <code>SkuAvailabilityTable.jsx</code> (Core Store Worksheet)</h3>
+<ul>
+<li><strong>Data Schema:</strong> Each row is a compact array: <code>[chain, sku, city, pin, recent_statuses, totalAvailPct, avCnt, totCnt]</code>.</li>
+<li><strong>Date Badge Logic:</strong></li>
+<li><code>status === 1</code>: Green <code>&lt;span className=&quot;badge success&quot;&gt;Available&lt;/span&gt;</code>.</li>
+<li><code>status === 0</code>: Neutral <code>&lt;span className=&quot;badge&quot;&gt;NR&lt;/span&gt;</code> (Not Reported / Out of Stock).</li>
+<li><strong>Total Availability Column (Last Column):</strong></li>
+<li>Displays total percentage: <code>totalAvailPct</code> (e.g. <code>100%</code>).</li>
+<li>Displays count ratio: <code>(avCnt/totCnt dates)</code>`.</li>
+<li>Displays mini visual progress bar with dynamic width: <code>width: ${totalAvailPct}%</code>.</li>
+<li><strong>Full Availability 1st Sorting Logic:</strong></li>
+<li>In <code>filteredRows</code> <code>useMemo</code>:</li>
+</ul>
+<p>```javascript</p>
+<p>if (b.totalAvailPct !== a.totalAvailPct) {</p>
+<p>return b.totalAvailPct - a.totalAvailPct; // 100% comes first</p>
+<p>}</p>
+<p>if (b.availCount !== a.availCount) {</p>
+<p>return b.availCount - a.availCount;       // Highest recent count second</p>
+<p>}</p>
+<p>```</p>
+<h3 id="52-brandavailabilitytablejsx-brand-wise-matrix">5.2. <code>BrandAvailabilityTable.jsx</code> (Brand-wise Matrix)</h3>
+<ul>
+<li><strong>Badge Rules (<code>renderRateBadge</code>):</strong></li>
+<li><code>rate &gt;= 100</code>: Dark Green badge (<code>#ecfdf5</code>, text <code>#047857</code>).</li>
+<li><code>95 &lt;= rate &lt; 100</code>: Blue badge (<code>#eff6ff</code>, text <code>#1d4ed8</code>).</li>
+<li><code>80 &lt;= rate &lt; 95</code>: Amber badge (<code>#fffbeb</code>, text <code>#b45309</code>).</li>
+<li><code>rate &lt; 80</code>: Rose / Red badge (<code>#fff1f2</code>, text <code>#be123c</code>).</li>
+<li><strong><code>No Product Found</code></strong>: When no products were scraped for that brand on that date (<code>!cellData</code>), renders a soft gray badge (<code>#f8fafc</code>, text <code>#94a3b8</code>) with tooltip <em>&quot;No product found / scraped on this date&quot;</em>.</li>
+</ul>
+<hr />
+<h2 id="6-developer-change-recipes-future-modifications-cookbook">6. Developer Change Recipes (Future Modifications Cookbook)</h2>
+<h3 id="recipe-1-how-to-change-chart-colors--themes">Recipe 1: How to Change Chart Colors &amp; Themes</h3>
+<p>Open the relevant page (e.g. <code>src/pages/DashboardOverview.jsx</code> or <code>src/pages/AvailabilityAnalysis.jsx</code>). Find the ECharts option object. All color schemes are declared in the <code>color</code> property:</p>
+<pre><code class="language-javascript">// Change palette of any chart:
+color: [&#x27;#002f6c&#x27;, &#x27;#0284c7&#x27;, &#x27;#10b981&#x27;, &#x27;#f59e0b&#x27;, &#x27;#8b5cf6&#x27;, &#x27;#ec4899&#x27;]</code></pre>
+<h3 id="recipe-2-how-to-add-a-new-category-or-brand-to-the-sku-table">Recipe 2: How to Add a New Category or Brand to the SKU Table</h3>
+<p>1. Open <code>src/skuAvailabilityData.json</code>.</p>
+<p>2. Add the category to <code>categories: [...]</code>.</p>
+<p>3. Add the category key and brand list to <code>hierarchy: { ... }</code>.</p>
+<p>4. In <code>src/skuStoreMatrixData.json</code>, ensure your new sheets specify matching <code>category</code> and <code>brand</code> attributes.</p>
+<h3 id="recipe-3-how-to-adjust-the-default-page-size-in-tables">Recipe 3: How to Adjust the Default Page Size in Tables</h3>
+<p>In <code>src/components/SkuAvailabilityTable.jsx</code> line 41, or <code>src/components/DataTable.jsx</code> line 23:</p>
+<pre><code class="language-javascript">const [pageSize, setPageSize] = useState(25); // Change 15 to 25 or 50</code></pre>
+<h3 id="recipe-4-how-to-add-a-new-target-date-to-the-store-matrix">Recipe 4: How to Add a New Target Date to the Store Matrix</h3>
+<p>1. Open <code>scratch/add_total_avail_to_matrix.py</code>.</p>
+<p>2. Add the new date string (YYYY-MM-DD) to <code>target_dates = [...]</code> on line 18.</p>
+<p>3. Run <code>python scratch/add_total_avail_to_matrix.py</code>.</p>
+<p>4. The table headers, badges, and total availability will update automatically across all 63,000+ rows.</p>
+<h3 id="recipe-5-how-to-modify-the-no-product-found-badge-text-or-styling">Recipe 5: How to Modify the &#x27;No Product Found&#x27; Badge Text or Styling</h3>
+<p>In <code>src/components/BrandAvailabilityTable.jsx</code> around line 254:</p>
+<pre><code class="language-jsx">const renderRateBadge = (cellData) =&gt; {
+  if (!cellData) {
+    return (
+      &lt;span style={{ ...badgeStyle, background: &#x27;#f8fafc&#x27;, color: &#x27;#94a3b8&#x27; }}&gt;
+        No Product Found
+      &lt;/span&gt;
+    );
+  }
+  // ...
+}</code></pre>
+<hr />
+<p><em>Manual compiled for incoming software engineers, product owners, and data teams.</em></p>
+</body>
+</html>

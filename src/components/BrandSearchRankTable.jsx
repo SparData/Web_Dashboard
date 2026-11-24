@@ -1,8 +1,33 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Search, ArrowUpDown, ChevronLeft, ChevronRight, Calendar, Download, X, RotateCcw, LineChart as LineChartIcon, Table as TableIcon } from 'lucide-react';
 import ChartContainer from './ChartContainer';
 
-export default function BrandSearchRankTable({ productListings = [] }) {
+// Helper to extract YYYY-MM-DD date key
+function formatDateKey(dateVal) {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal.trim();
+  }
+  if (dateVal instanceof Date) {
+    return dateVal.toISOString().split('T')[0];
+  }
+  return String(dateVal).trim();
+}
+
+// Format Date in DD-MM-YYYY format (e.g. 13-07-2026) matching screenshot
+function formatDateDDMMYYYY(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
+    }
+  } catch {}
+  return dateStr;
+}
+
+function BrandSearchRankTable({ productListings = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'periodAvg', direction: 'asc' }); // Default asc (Rank #1 first)
   const [currentPage, setCurrentPage] = useState(1);
@@ -13,31 +38,6 @@ export default function BrandSearchRankTable({ productListings = [] }) {
   // Date Slicers State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
-  // Helper to extract YYYY-MM-DD date key
-  const formatDateKey = (dateVal) => {
-    if (!dateVal) return '';
-    if (typeof dateVal === 'string') {
-      return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal.trim();
-    }
-    if (dateVal instanceof Date) {
-      return dateVal.toISOString().split('T')[0];
-    }
-    return String(dateVal).trim();
-  };
-
-  // Format Date in DD-MM-YYYY format (e.g. 13-07-2026) matching screenshot
-  const formatDateDDMMYYYY = (dateStr) => {
-    if (!dateStr) return '';
-    try {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        const [year, month, day] = parts;
-        return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
-      }
-    } catch {}
-    return dateStr;
-  };
 
   // 1. Extract all available unique dates from the dataset
   const allDates = useMemo(() => {
@@ -228,7 +228,7 @@ export default function BrandSearchRankTable({ productListings = [] }) {
   }, [processedRows, currentPage, pageSize]);
 
   // Export to CSV
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     if (brandRows.length === 0 || slicedDates.length === 0) return;
     const summaryHeader = metricMode === 'best' ? 'Best Search Rank' : 'Avg Search Rank';
     const headers = ['Brand', ...slicedDates.map(d => formatDateDDMMYYYY(d)), summaryHeader];
@@ -256,7 +256,7 @@ export default function BrandSearchRankTable({ productListings = [] }) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  }, [brandRows.length, slicedDates, processedRows, metricMode, isSliced, startDate, endDate]);
 
   // Trend Chart Option (ECharts)
   const trendChartOption = useMemo(() => {
@@ -860,3 +860,5 @@ export default function BrandSearchRankTable({ productListings = [] }) {
     </div>
   );
 }
+
+export default React.memo(BrandSearchRankTable);

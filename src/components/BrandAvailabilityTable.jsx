@@ -1,7 +1,34 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Search, ArrowUpDown, ChevronLeft, ChevronRight, Calendar, Download, Sparkles, X, RotateCcw } from 'lucide-react';
 
-export default function BrandAvailabilityTable({ productListings = [] }) {
+// Helper to extract YYYY-MM-DD date key
+function formatDateKey(dateVal) {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal.trim();
+  }
+  if (dateVal instanceof Date) {
+    return dateVal.toISOString().split('T')[0];
+  }
+  return String(dateVal).trim();
+}
+
+// Helper for human-friendly date header
+function formatDateLabel(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    }
+  } catch {}
+  return dateStr;
+}
+
+function BrandAvailabilityTable({ productListings = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'periodRate', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -10,33 +37,6 @@ export default function BrandAvailabilityTable({ productListings = [] }) {
   // Date Slicers State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
-  // Helper to extract YYYY-MM-DD date key
-  const formatDateKey = (dateVal) => {
-    if (!dateVal) return '';
-    if (typeof dateVal === 'string') {
-      return dateVal.includes('T') ? dateVal.split('T')[0] : dateVal.trim();
-    }
-    if (dateVal instanceof Date) {
-      return dateVal.toISOString().split('T')[0];
-    }
-    return String(dateVal).trim();
-  };
-
-  // Helper for human-friendly date header
-  const formatDateLabel = (dateStr) => {
-    if (!dateStr) return '';
-    try {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-        if (!isNaN(d.getTime())) {
-          return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        }
-      }
-    } catch {}
-    return dateStr;
-  };
 
   // 1. Extract all available unique dates from the dataset
   const allDates = useMemo(() => {
@@ -224,7 +224,7 @@ export default function BrandAvailabilityTable({ productListings = [] }) {
   }, [processedRows, currentPage, pageSize]);
 
   // Export to CSV with sliced columns
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     if (brandRows.length === 0 || slicedDates.length === 0) return;
     const avgHeader = isSliced ? 'Period Avg Availability %' : 'Overall Availability %';
     const headers = ['Brand', ...slicedDates.map(d => formatDateLabel(d)), avgHeader];
@@ -233,7 +233,7 @@ export default function BrandAvailabilityTable({ productListings = [] }) {
     processedRows.forEach(row => {
       const line = [
         `"${row.brandName.replace(/"/g, '""')}"`,
-        ...slicedDates.map(d => row.dateRates[d] ? `${row.dateRates[d].rate}%` : 'N/A'),
+        ...slicedDates.map(d => row.dateRates[d] ? `${row.dateRates[d].rate}%` : 'No Product Found'),
         `${row.periodRate}%`
       ];
       csvLines.push(line.join(','));
@@ -248,12 +248,31 @@ export default function BrandAvailabilityTable({ productListings = [] }) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  }, [brandRows.length, slicedDates, processedRows, isSliced, startDate, endDate]);
 
   // Helper to render percentage badge
   const renderRateBadge = (cellData) => {
     if (!cellData) {
-      return <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 500 }}>—</span>;
+      return (
+        <span 
+          style={{ 
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            background: '#f8fafc',
+            color: '#94a3b8',
+            border: '1px solid #e2e8f0',
+            whiteSpace: 'nowrap'
+          }}
+          title="No product found / scraped on this date"
+        >
+          No Product Found
+        </span>
+      );
     }
 
     const { rate, available, total } = cellData;
@@ -727,3 +746,5 @@ export default function BrandAvailabilityTable({ productListings = [] }) {
     </div>
   );
 }
+
+export default React.memo(BrandAvailabilityTable);

@@ -25,7 +25,7 @@ echarts.use([
   CanvasRenderer
 ]);
 
-export default function ChartContainer({ options, style }) {
+function ChartContainer({ options, style }) {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
 
@@ -88,3 +88,5 @@ export default function ChartContainer({ options, style }) {
     />
   );
 }
+
+export default React.memo(ChartContainer);

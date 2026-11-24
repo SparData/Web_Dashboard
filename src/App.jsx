@@ -1,11 +1,12 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { LayoutDashboard, CheckCircle2, ShoppingBag, LogOut } from 'lucide-react';
 import Filters from './components/Filters';
+import RefreshControl from './components/RefreshControl';
 import { bannerAdsData, productListingsData } from './data';
 
 // Dynamic code-splitting: load page components on-demand
 const DashboardOverview = lazy(() => import('./pages/DashboardOverview'));
-const AdAnalysis = lazy(() => import('./pages/AdAnalysis'));
+const AvailabilityAnalysis = lazy(() => import('./pages/AvailabilityAnalysis'));
 const ProductInsights = lazy(() => import('./pages/ProductInsights'));
 const Login = lazy(() => import('./pages/Login'));
 
@@ -63,97 +64,187 @@ export default function App() {
   const [dbAvgSearchRank, setDbAvgSearchRank] = useState(null);
   const [dbStatus, setDbStatus] = useState('connecting'); // 'connecting', 'connected', 'offline'
 
-  // Fetch live database data on component mount
-  useEffect(() => {
-    async function loadData() {
-      try {
+  // Live Auto-Refresh & Background Polling State
+  const [refreshInterval, setRefreshInterval] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dashboard_refresh_interval');
+      return saved !== null ? parseInt(saved, 10) : 30; // default 30s
+    } catch {
+      return 30;
+    }
+  });
+  const [countdown, setCountdown] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dashboard_refresh_interval');
+      return saved !== null ? parseInt(saved, 10) : 30;
+    } catch {
+      return 30;
+    }
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+
+  // Centralized data fetcher with query-based cache busting
+  const loadData = useCallback(async (forceRefresh = false, isBackground = false) => {
+    if (!isBackground) {
+      setIsRefreshing(true);
+    }
+    try {
+      if (!isBackground && dbStatus !== 'connected') {
         setDbStatus('connecting');
-        // Fetch ads, products, distinct options, and consolidated KPIs concurrently
-        const [adsRes, productsRes, distinctTitlesRes, distinctBrandsRes, kpisRes] = await Promise.all([
-          fetch('http://localhost:5000/api/banner-ads'),
-          fetch('http://localhost:5000/api/product-listings'),
-          fetch('http://localhost:5000/api/distinct-titles'),
-          fetch('http://localhost:5000/api/distinct-brands'),
-          fetch('http://localhost:5000/api/kpis')
-        ]);
+      }
 
-        if (!adsRes.ok || !productsRes.ok || !distinctTitlesRes.ok || !distinctBrandsRes.ok || !kpisRes.ok) {
-          throw new Error('Failed to fetch from API');
-        }
+      const queryParam = forceRefresh ? `?refresh=1&_t=${Date.now()}` : '';
+      const [adsRes, productsRes, distinctTitlesRes, distinctBrandsRes, kpisRes] = await Promise.all([
+        fetch(`http://localhost:5000/api/banner-ads${queryParam}`),
+        fetch(`http://localhost:5000/api/product-listings${queryParam}`),
+        fetch(`http://localhost:5000/api/distinct-titles${queryParam}`),
+        fetch(`http://localhost:5000/api/distinct-brands${queryParam}`),
+        fetch(`http://localhost:5000/api/kpis${queryParam}`)
+      ]);
 
-        const [adsData, productsData, distinctTitlesData, distinctBrandsData, kpisData] = await Promise.all([
-          adsRes.json(),
-          productsRes.json(),
-          distinctTitlesRes.json(),
-          distinctBrandsRes.json(),
-          kpisRes.json()
-        ]);
+      if (!adsRes.ok || !productsRes.ok || !distinctTitlesRes.ok || !distinctBrandsRes.ok || !kpisRes.ok) {
+        throw new Error('Failed to fetch from API');
+      }
 
-        setBannerAds(adsData);
-        setProductListings(productsData);
-        setDistinctTitles(distinctTitlesData);
-        setDbDistinctBrands(distinctBrandsData);
-        setDbAvgPrice(kpisData.avgPrice);
-        setDbAvgDiscount(kpisData.avgDiscount);
-        setDbAvailabilityPercentage(kpisData.availabilityPercentage);
-        setDbAvgSearchRank(kpisData.avgSearchRank);
-        setDbStatus('connected');
-      } catch (err) {
-        console.warn('⚠️ Server connection failed. Falling back to local mock data.', err);
-        setBannerAds(bannerAdsData);
-        setProductListings(productListingsData);
-        setDistinctTitles(Array.from(new Set(productListingsData.map(p => p.title?.toLowerCase()))).filter(Boolean).sort());
-        setDbDistinctBrands(Array.from(new Set(productListingsData.map(p => p.brand?.toLowerCase()))).filter(Boolean).sort());
+      const [adsData, productsData, distinctTitlesData, distinctBrandsData, kpisData] = await Promise.all([
+        adsRes.json(),
+        productsRes.json(),
+        distinctTitlesRes.json(),
+        distinctBrandsRes.json(),
+        kpisRes.json()
+      ]);
 
-        // Single-pass fallback KPI calculation for mock data
-        let mockTotalPrice = 0;
-        let mockPriceCount = 0;
-        let mockTotalDiscount = 0;
-        let mockDiscountCount = 0;
-        let mockAvailableCount = 0;
-        let mockTotalRank = 0;
-        let mockRankCount = 0;
+      setBannerAds(adsData);
+      setProductListings(productsData);
+      setDistinctTitles(distinctTitlesData);
+      setDbDistinctBrands(distinctBrandsData);
+      setDbAvgPrice(kpisData.avgPrice);
+      setDbAvgDiscount(kpisData.avgDiscount);
+      setDbAvailabilityPercentage(kpisData.availabilityPercentage);
+      setDbAvgSearchRank(kpisData.avgSearchRank);
+      setDbStatus('connected');
+      setLastSyncTime(new Date());
+    } catch (err) {
+      console.warn('⚠️ Server connection note (using active data / mock fallback):', err.message);
+      // Only overwrite with mock data if we have no existing listings loaded
+      setProductListings(prev => {
+        if (!prev || prev.length === 0) {
+          setBannerAds(bannerAdsData);
+          setDistinctTitles(Array.from(new Set(productListingsData.map(p => p.title?.toLowerCase()))).filter(Boolean).sort());
+          setDbDistinctBrands(Array.from(new Set(productListingsData.map(p => p.brand?.toLowerCase()))).filter(Boolean).sort());
 
-        for (let i = 0; i < productListingsData.length; i++) {
-          const p = productListingsData[i];
-          const price = parseFloat(p.price);
-          if (!isNaN(price)) {
-            mockTotalPrice += price;
-            mockPriceCount++;
-          }
-          let d = null;
-          if (p.discount !== undefined && p.discount !== null) {
-            const parsedD = parseFloat(p.discount);
-            if (!isNaN(parsedD)) d = parsedD;
-          }
-          if (d === null) {
-            const origPrice = parseFloat(p.original_price);
-            if (!isNaN(price) && !isNaN(origPrice) && origPrice > 0) {
-              d = ((origPrice - price) / origPrice) * 100;
+          // Single-pass fallback KPI calculation for mock data
+          let mockTotalPrice = 0;
+          let mockPriceCount = 0;
+          let mockTotalDiscount = 0;
+          let mockDiscountCount = 0;
+          let mockAvailableCount = 0;
+          let mockTotalRank = 0;
+          let mockRankCount = 0;
+
+          for (let i = 0; i < productListingsData.length; i++) {
+            const p = productListingsData[i];
+            const price = parseFloat(p.price);
+            if (!isNaN(price)) {
+              mockTotalPrice += price;
+              mockPriceCount++;
+            }
+            let d = null;
+            if (p.discount !== undefined && p.discount !== null) {
+              const parsedD = parseFloat(p.discount);
+              if (!isNaN(parsedD)) d = parsedD;
+            }
+            if (d === null) {
+              const origPrice = parseFloat(p.original_price);
+              if (!isNaN(price) && !isNaN(origPrice) && origPrice > 0) {
+                d = ((origPrice - price) / origPrice) * 100;
+              }
+            }
+            if (d !== null) {
+              mockTotalDiscount += d;
+              mockDiscountCount++;
+            }
+            const isAvail = p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes');
+            if (isAvail) mockAvailableCount++;
+            const rank = parseFloat(p.rank_num);
+            if (!isNaN(rank)) {
+              mockTotalRank += rank;
+              mockRankCount++;
             }
           }
-          if (d !== null) {
-            mockTotalDiscount += d;
-            mockDiscountCount++;
-          }
-          const isAvail = p.availability === true || p.availability === 'true' || (typeof p.availability === 'string' && p.availability.trim().toLowerCase() === 'yes');
-          if (isAvail) mockAvailableCount++;
-          const rank = parseFloat(p.rank_num);
-          if (!isNaN(rank)) {
-            mockTotalRank += rank;
-            mockRankCount++;
-          }
-        }
 
-        setDbAvgPrice(mockPriceCount ? Math.round(mockTotalPrice / mockPriceCount) : 0);
-        setDbAvgDiscount(mockDiscountCount ? parseFloat((mockTotalDiscount / mockDiscountCount).toFixed(1)) : 0.0);
-        setDbAvailabilityPercentage(productListingsData.length ? parseFloat(((mockAvailableCount / productListingsData.length) * 100).toFixed(2)) : 0.0);
-        setDbAvgSearchRank(mockRankCount ? Math.round(mockTotalRank / mockRankCount) : 0);
-        setDbStatus('offline');
-      }
+          setDbAvgPrice(mockPriceCount ? Math.round(mockTotalPrice / mockPriceCount) : 0);
+          setDbAvgDiscount(mockDiscountCount ? parseFloat((mockTotalDiscount / mockDiscountCount).toFixed(1)) : 0.0);
+          setDbAvailabilityPercentage(productListingsData.length ? parseFloat(((mockAvailableCount / productListingsData.length) * 100).toFixed(2)) : 0.0);
+          setDbAvgSearchRank(mockRankCount ? Math.round(mockTotalRank / mockRankCount) : 0);
+          return productListingsData;
+        }
+        return prev;
+      });
+      setDbStatus(prev => prev === 'connected' ? 'connected' : 'offline');
+    } finally {
+      setIsRefreshing(false);
     }
-    loadData();
+  }, [dbStatus]);
+
+  // Initial fetch on component mount
+  useEffect(() => {
+    loadData(false, false);
+  }, [loadData]);
+
+  // Periodic Auto-refresh Timer
+  useEffect(() => {
+    if (refreshInterval <= 0) return;
+
+    const timer = setInterval(() => {
+      // Pause countdown when browser tab is hidden to save background bandwidth
+      if (typeof document !== 'undefined' && document.hidden) {
+        return;
+      }
+
+      setCountdown(prev => {
+        if (prev <= 1) {
+          // Trigger background auto-refresh and reset countdown
+          loadData(true, true);
+          return refreshInterval;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [refreshInterval, loadData]);
+
+  // Immediately refresh upon returning to tab if active
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && refreshInterval > 0) {
+        loadData(true, true);
+        setCountdown(refreshInterval);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [refreshInterval, loadData]);
+
+  // Change interval handler
+  const handleIntervalChange = useCallback((newInterval) => {
+    setRefreshInterval(newInterval);
+    setCountdown(newInterval);
+    try {
+      localStorage.setItem('dashboard_refresh_interval', String(newInterval));
+    } catch {}
   }, []);
+
+  // Manual force refresh button handler
+  const handleManualRefresh = useCallback(() => {
+    if (isRefreshing) return;
+    loadData(true, false);
+    if (refreshInterval > 0) {
+      setCountdown(refreshInterval);
+    }
+  }, [isRefreshing, loadData, refreshInterval]);
 
   // Single-pass computation for dynamic filter options
   const availableOptions = useMemo(() => {
@@ -433,13 +524,36 @@ export default function App() {
     };
   }, [filteredProductListings, dbDistinctBrands, dbAvgPrice, dbAvgDiscount, dbAvailabilityPercentage, dbAvgSearchRank, user, filters]);
 
-  const handleKpiClick = (kpiKey) => {
+  const handleKpiClick = useCallback((kpiKey) => {
     if (['avgPrice', 'avgRating', 'avgDiscount', 'availabilityRate', 'totalBrands', 'distinctProducts', 'outOfStockRate'].includes(kpiKey)) {
       if (user?.dashboardId === 'full' || user?.dashboardId === 'catalog-focus') {
         setActiveTab('products');
       }
     }
-  };
+  }, [user?.dashboardId]);
+
+  const handleLogin = useCallback((userData) => {
+    try {
+      localStorage.setItem('dashboard_user', JSON.stringify(userData));
+    } catch {}
+    setUser(userData);
+    setActiveTab('overview');
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    try {
+      localStorage.removeItem('dashboard_user');
+    } catch {}
+    setUser(null);
+  }, []);
+
+  const handleFilterChange = useCallback((newFilters) => {
+    setFilters(newFilters);
+  }, []);
+
+  const handleCloseMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
 
   const renderActiveContent = () => {
     switch (activeTab) {
@@ -454,7 +568,7 @@ export default function App() {
         );
       case 'ads':
         return (
-          <AdAnalysis 
+          <AvailabilityAnalysis 
             bannerAds={filteredBannerAds} 
             productListings={filteredProductListings} 
             stats={stats} 
@@ -471,15 +585,7 @@ export default function App() {
   if (!user) {
     return (
       <Suspense fallback={<DashboardLoadingFallback />}>
-        <Login 
-          onLogin={(userData) => {
-            try {
-              localStorage.setItem('dashboard_user', JSON.stringify(userData));
-            } catch {}
-            setUser(userData);
-            setActiveTab('overview');
-          }} 
-        />
+        <Login onLogin={handleLogin} />
       </Suspense>
     );
   }
@@ -497,7 +603,7 @@ export default function App() {
             <li>
               <div 
                 className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
+                onClick={() => { setActiveTab('overview'); handleCloseMobileMenu(); }}
               >
                 <LayoutDashboard size={18} />
                 <span>Overall Insights</span>
@@ -507,7 +613,7 @@ export default function App() {
               <li>
                 <div 
                   className={`nav-item ${activeTab === 'ads' ? 'active' : ''}`}
-                  onClick={() => { setActiveTab('ads'); setMobileMenuOpen(false); }}
+                  onClick={() => { setActiveTab('ads'); handleCloseMobileMenu(); }}
                 >
                   <CheckCircle2 size={18} />
                   <span>Availability</span>
@@ -518,7 +624,7 @@ export default function App() {
               <li>
                 <div 
                   className={`nav-item ${activeTab === 'products' ? 'active' : ''}`}
-                  onClick={() => { setActiveTab('products'); setMobileMenuOpen(false); }}
+                  onClick={() => { setActiveTab('products'); handleCloseMobileMenu(); }}
                 >
                   <ShoppingBag size={18} />
                   <span>SKU Specific Data</span>
@@ -529,12 +635,7 @@ export default function App() {
               <div 
                 className="nav-item"
                 style={{ color: 'var(--danger)', marginTop: '24px' }}
-                onClick={() => {
-                  try {
-                    localStorage.removeItem('dashboard_user');
-                  } catch {}
-                  setUser(null);
-                }}
+                onClick={handleLogout}
               >
                 <LogOut size={18} />
                 <span>Sign Out</span>
@@ -552,7 +653,7 @@ export default function App() {
       <main className="main-content">
         <header className="top-header">
           <div className="header-title">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <h1>Automated BI Dashboard</h1>
               {dbStatus === 'connected' ? (
                 <span className="badge success" style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Connected to PostgreSQL database: Analytics_DB on port 5000">
@@ -561,7 +662,7 @@ export default function App() {
                 </span>
               ) : dbStatus === 'connecting' ? (
                 <span className="badge warning" style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Fetching records from PostgreSQL...">
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block', animation: 'pulse-soft 1.5s infinite' }} />
                   Connecting DB...
                 </span>
               ) : (
@@ -574,22 +675,31 @@ export default function App() {
             <p>Comprehensive insights for Digital Shelf Share, Banner Ads, and Product Listings</p>
           </div>
 
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#000000' }}>{user.email}</span>
-              <span style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600 }}>{user.role}</span>
+          <div className="header-actions-group">
+            {/* Live Data Refresh Rate Controls */}
+            <RefreshControl
+              refreshInterval={refreshInterval}
+              onIntervalChange={handleIntervalChange}
+              countdown={countdown}
+              isRefreshing={isRefreshing}
+              onManualRefresh={handleManualRefresh}
+              lastSyncTime={lastSyncTime}
+              dbStatus={dbStatus}
+            />
+
+            <div className="header-user-badge">
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>{user.email}</span>
+                <span style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600 }}>{user.role}</span>
+              </div>
             </div>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>|</span>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Last Sync: {dbStatus === 'connected' ? 'Live' : 'Mock Data'}
-            </span>
           </div>
         </header>
 
         {/* Global Interactive Filters */}
         <Filters 
           filters={filters} 
-          onFilterChange={setFilters} 
+          onFilterChange={handleFilterChange} 
           availableOptions={availableOptions} 
         />
 

@@ -18,9 +18,17 @@ app.use(express.json());
 
 // In-memory TTL cache for high-efficiency response serving
 const cache = new Map();
-const DEFAULT_TTL_MS = 60 * 1000; // 60 seconds
+const DEFAULT_TTL_MS = 30 * 1000; // 30 seconds freshness window
 
-function getCached(key) {
+function shouldBypassCache(req) {
+  return req.query.refresh === 'true' || req.query.refresh === '1';
+}
+
+function getCached(key, forceRefresh = false) {
+  if (forceRefresh) {
+    cache.delete(key);
+    return null;
+  }
   const item = cache.get(key);
   if (!item) return null;
   if (Date.now() > item.expiresAt) {
@@ -31,25 +39,35 @@ function getCached(key) {
 }
 
 function setCached(key, data, ttlMs = DEFAULT_TTL_MS) {
-  cache.set(key, { data, expiresAt: Date.now() + ttlMs });
+  cache.set(key, { data, expiresAt: Date.now() + ttlMs, cachedAt: Date.now() });
 }
 
 // Healthy check route
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy', database: process.env.DB_DATABASE, cachedKeys: Array.from(cache.keys()) });
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    database: process.env.DB_DATABASE, 
+    cachedKeys: Array.from(cache.keys()),
+    defaultTtlSeconds: DEFAULT_TTL_MS / 1000
+  });
 });
 
 // Cache busting route
 app.post('/api/cache/clear', (req, res) => {
   cache.clear();
-  res.json({ message: 'Cache cleared successfully' });
+  res.json({ message: 'Cache cleared successfully', timestamp: new Date().toISOString() });
 });
 
 // Consolidated KPIs endpoint: computes avg_price, avg_discount, availability_percentage, and avg_search_rank in a single SQL query
 app.get('/api/kpis', async (req, res) => {
   try {
-    const cached = getCached('kpis');
-    if (cached) return res.json(cached);
+    const forceRefresh = shouldBypassCache(req);
+    const cached = getCached('kpis', forceRefresh);
+    if (cached) {
+      res.set('X-Cache-Status', 'HIT');
+      return res.json(cached);
+    }
 
     const result = await pool.query(`
       SELECT 
@@ -69,6 +87,7 @@ app.get('/api/kpis', async (req, res) => {
     };
 
     setCached('kpis', data);
+    res.set('X-Cache-Status', 'MISS');
     res.json(data);
   } catch (error) {
     console.error('Error fetching consolidated KPIs:', error);
@@ -79,11 +98,16 @@ app.get('/api/kpis', async (req, res) => {
 // Endpoint to fetch banner ads (with caching)
 app.get('/api/banner-ads', async (req, res) => {
   try {
-    const cached = getCached('banner-ads');
-    if (cached) return res.json(cached);
+    const forceRefresh = shouldBypassCache(req);
+    const cached = getCached('banner-ads', forceRefresh);
+    if (cached) {
+      res.set('X-Cache-Status', 'HIT');
+      return res.json(cached);
+    }
 
     const result = await pool.query('SELECT * FROM banner_data ORDER BY s_no ASC');
     setCached('banner-ads', result.rows);
+    res.set('X-Cache-Status', 'MISS');
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching banner ads:', error);
@@ -94,11 +118,16 @@ app.get('/api/banner-ads', async (req, res) => {
 // Endpoint to fetch product listings (with caching)
 app.get('/api/product-listings', async (req, res) => {
   try {
-    const cached = getCached('product-listings');
-    if (cached) return res.json(cached);
+    const forceRefresh = shouldBypassCache(req);
+    const cached = getCached('product-listings', forceRefresh);
+    if (cached) {
+      res.set('X-Cache-Status', 'HIT');
+      return res.json(cached);
+    }
 
     const result = await pool.query('SELECT * FROM raw_data ORDER BY s_no ASC');
     setCached('product-listings', result.rows);
+    res.set('X-Cache-Status', 'MISS');
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching product listings:', error);
@@ -109,12 +138,17 @@ app.get('/api/product-listings', async (req, res) => {
 // Endpoint to fetch distinct lower(title) from postgres (with caching)
 app.get('/api/distinct-titles', async (req, res) => {
   try {
-    const cached = getCached('distinct-titles');
-    if (cached) return res.json(cached);
+    const forceRefresh = shouldBypassCache(req);
+    const cached = getCached('distinct-titles', forceRefresh);
+    if (cached) {
+      res.set('X-Cache-Status', 'HIT');
+      return res.json(cached);
+    }
 
     const result = await pool.query('SELECT DISTINCT LOWER(title) AS title FROM public.raw_data ORDER BY title ASC');
     const titles = result.rows.map(row => row.title).filter(Boolean);
-    setCached('distinct-titles', titles);
+    setCached('distinct-titles', titles, 60 * 1000);
+    res.set('X-Cache-Status', 'MISS');
     res.json(titles);
   } catch (error) {
     console.error('Error fetching distinct titles:', error);
@@ -125,12 +159,17 @@ app.get('/api/distinct-titles', async (req, res) => {
 // Endpoint to fetch distinct lower(brand) from postgres (with caching)
 app.get('/api/distinct-brands', async (req, res) => {
   try {
-    const cached = getCached('distinct-brands');
-    if (cached) return res.json(cached);
+    const forceRefresh = shouldBypassCache(req);
+    const cached = getCached('distinct-brands', forceRefresh);
+    if (cached) {
+      res.set('X-Cache-Status', 'HIT');
+      return res.json(cached);
+    }
 
     const result = await pool.query('SELECT DISTINCT LOWER(brand) AS brand FROM public.raw_data ORDER BY brand ASC');
     const brands = result.rows.map(row => row.brand).filter(Boolean);
-    setCached('distinct-brands', brands);
+    setCached('distinct-brands', brands, 60 * 1000);
+    res.set('X-Cache-Status', 'MISS');
     res.json(brands);
   } catch (error) {
     console.error('Error fetching distinct brands:', error);
@@ -141,7 +180,8 @@ app.get('/api/distinct-brands', async (req, res) => {
 // Legacy endpoints maintained for backward compatibility (powered by cache)
 app.get('/api/avg-price', async (req, res) => {
   try {
-    const cachedKpis = getCached('kpis');
+    const forceRefresh = shouldBypassCache(req);
+    const cachedKpis = getCached('kpis', forceRefresh);
     if (cachedKpis) return res.json({ avgPrice: cachedKpis.avgPrice });
 
     const result = await pool.query('SELECT AVG(price) AS avg_price FROM public.raw_data');
@@ -155,7 +195,8 @@ app.get('/api/avg-price', async (req, res) => {
 
 app.get('/api/avg-discount', async (req, res) => {
   try {
-    const cachedKpis = getCached('kpis');
+    const forceRefresh = shouldBypassCache(req);
+    const cachedKpis = getCached('kpis', forceRefresh);
     if (cachedKpis) return res.json({ avgDiscount: cachedKpis.avgDiscount });
 
     const result = await pool.query('SELECT AVG(discount) AS avg_discount FROM public.raw_data');
@@ -169,7 +210,8 @@ app.get('/api/avg-discount', async (req, res) => {
 
 app.get('/api/availability-percentage', async (req, res) => {
   try {
-    const cachedKpis = getCached('kpis');
+    const forceRefresh = shouldBypassCache(req);
+    const cachedKpis = getCached('kpis', forceRefresh);
     if (cachedKpis) return res.json({ availabilityPercentage: cachedKpis.availabilityPercentage });
 
     const result = await pool.query("SELECT ROUND(COUNT(*) FILTER (WHERE TRIM(LOWER(availability)) = 'yes') * 100.0 / NULLIF(COUNT(*), 0), 2) AS availability_percentage FROM public.raw_data");
@@ -183,7 +225,8 @@ app.get('/api/availability-percentage', async (req, res) => {
 
 app.get('/api/avg-search-rank', async (req, res) => {
   try {
-    const cachedKpis = getCached('kpis');
+    const forceRefresh = shouldBypassCache(req);
+    const cachedKpis = getCached('kpis', forceRefresh);
     if (cachedKpis) return res.json({ avgSearchRank: cachedKpis.avgSearchRank });
 
     const result = await pool.query("SELECT AVG(rank_num) AS avg_rank FROM public.raw_data");
@@ -219,11 +262,11 @@ async function warmCache() {
       avgDiscount: row.avg_discount ? parseFloat(parseFloat(row.avg_discount).toFixed(1)) : 0.0,
       availabilityPercentage: row.availability_percentage ? parseFloat(parseFloat(row.availability_percentage).toFixed(2)) : 0.0,
       avgSearchRank: row.avg_rank ? Math.round(parseFloat(row.avg_rank)) : 0
-    }, 15 * 60 * 1000);
+    }, 45 * 1000);
 
-    setCached('banner-ads', banners.rows, 15 * 60 * 1000);
-    setCached('distinct-titles', titles.rows.map(r => r.title).filter(Boolean), 30 * 60 * 1000);
-    setCached('distinct-brands', brands.rows.map(r => r.brand).filter(Boolean), 30 * 60 * 1000);
+    setCached('banner-ads', banners.rows, 45 * 1000);
+    setCached('distinct-titles', titles.rows.map(r => r.title).filter(Boolean), 90 * 1000);
+    setCached('distinct-brands', brands.rows.map(r => r.brand).filter(Boolean), 90 * 1000);
     console.log('✅ Query cache pre-warmed successfully.');
   } catch (err) {
     console.warn('⚠️ Cache pre-warming note:', err.message);

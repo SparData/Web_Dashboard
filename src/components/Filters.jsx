@@ -1,20 +1,32 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Calendar, Tag, MapPin, Layers, ShoppingBag, Search, X, RotateCcw } from 'lucide-react';
 
-export default function Filters({ filters, onFilterChange, availableOptions }) {
-  const handleChange = (key, value) => {
+function Filters({ filters, onFilterChange, availableOptions }) {
+  const handleChange = useCallback((key, value) => {
     onFilterChange({
       ...filters,
       [key]: value
     });
-  };
+  }, [filters, onFilterChange]);
 
-  const handleClearSingle = (key) => {
+  const handleClearSingle = useCallback((key) => {
     onFilterChange({
       ...filters,
       [key]: (key === 'start_date' || key === 'end_date') ? '' : 'all'
     });
-  };
+  }, [filters, onFilterChange]);
+
+  const handleResetAll = useCallback(() => {
+    onFilterChange({
+      start_date: '',
+      end_date: '',
+      city_pincode: 'all',
+      brand: 'all',
+      category: 'all',
+      source_chain: 'all',
+      product: 'all'
+    });
+  }, [onFilterChange]);
 
   const minAvailableDate = availableOptions.dates?.[0] || '';
   const maxAvailableDate = availableOptions.dates?.length ? availableOptions.dates[availableOptions.dates.length - 1] : '';
@@ -253,15 +265,7 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
         type="button"
         className="filter-reset-btn" 
         title="Reset all filters"
-        onClick={() => onFilterChange({
-          start_date: '',
-          end_date: '',
-          city_pincode: 'all',
-          brand: 'all',
-          category: 'all',
-          source_chain: 'all',
-          product: 'all'
-        })}
+        onClick={handleResetAll}
       >
         <RotateCcw size={13} />
         Clear Filters
@@ -269,3 +273,5 @@ export default function Filters({ filters, onFilterChange, availableOptions }) {
     </div>
   );
 }
+
+export default React.memo(Filters);

@@ -17,7 +17,7 @@ const BANNER_COLUMNS = [
   { key: 'title', label: 'Title Ad Copy', render: (val) => <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>{val}</span> }
 ];
 
-export default function DashboardOverview({ bannerAds, productListings, stats, onKpiClick }) {
+function DashboardOverview({ bannerAds, productListings, stats, onKpiClick }) {
   
   // 1. Calculate Share of Search by Top 10 Brands (Distinct SKUs per brand, ranked order, excluding 'Others')
   const shareOfSearchOption = useMemo(() => {
@@ -1148,3 +1148,5 @@ export default function DashboardOverview({ bannerAds, productListings, stats, o
     </div>
   );
 }
+
+export default React.memo(DashboardOverview);

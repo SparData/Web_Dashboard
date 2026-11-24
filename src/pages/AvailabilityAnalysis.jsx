@@ -15,7 +15,7 @@ function formatDate(dateVal) {
   return String(dateVal);
 }
 
-export default function AdAnalysis({ productListings = [], stats, onKpiClick }) {
+function AvailabilityAnalysis({ productListings = [], stats, onKpiClick }) {
 
   const overallAvailabilityRate = useMemo(() => {
     if (stats?.availabilityRate?.value !== undefined) {
@@ -586,3 +586,5 @@ export default function AdAnalysis({ productListings = [], stats, onKpiClick }) 
     </div>
   );
 }
+
+export default React.memo(AvailabilityAnalysis);
